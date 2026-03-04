@@ -20,21 +20,41 @@ export class FlowService {
     private readonly prisma: PrismaService,
     private readonly handlerFactory: HandlerFactory,
     @InjectQueue('outgoing_messages') private readonly outgoingQueue: Queue,
-  ) {}
+  ) { }
 
-  private getFlow(flowId: string): FlowDefinition {
+  private async fetchFlowDefinition(flowId: string): Promise<FlowDefinition> {
     if (this.flows.has(flowId)) return this.flows.get(flowId)!;
+
     try {
+      // 1. Tentar buscar no Banco de Dados (PostgreSQL via Prisma)
+      // O flowId pode ser um UUID ou o slug 'default'
+      const dbFlow = await this.prisma.flow.findUnique({
+        where: { id: flowId },
+      });
+
+      if (dbFlow && dbFlow.publishedContent) {
+        const json = dbFlow.publishedContent as any;
+        // O publishedContent já contém a estrutura FlowDefinition diretamente
+        const flowDef = json as FlowDefinition;
+        this.flows.set(flowId, flowDef);
+        return flowDef;
+      }
+
+      // Se não houver conteúdo publicado, vamos para o fallback de arquivos (para compatibilidade com os padrões iniciais)
       const flowPath = path.join(__dirname, '..', 'flows', `${flowId}.json`);
       const defaultPath = path.join(__dirname, '..', 'flows', 'default.json');
       const targetPath = fs.existsSync(flowPath) ? flowPath : defaultPath;
 
-      const fileContent = fs.readFileSync(targetPath, 'utf8');
-      const flowDef = JSON.parse(fileContent) as FlowDefinition;
-      this.flows.set(flowId, flowDef);
-      return flowDef;
+      if (fs.existsSync(targetPath)) {
+        const fileContent = fs.readFileSync(targetPath, 'utf8');
+        const flowDef = JSON.parse(fileContent) as FlowDefinition;
+        this.flows.set(flowId, flowDef);
+        return flowDef;
+      }
+
+      return { id: 'error', name: 'Error', steps: {} };
     } catch (e) {
-      this.logger.error(`Failed to load flow JSON for ${flowId}`, e);
+      this.logger.error(`Failed to load flow for ${flowId}`, e);
       return { id: 'error', name: 'Error', steps: {} };
     }
   }
@@ -56,8 +76,9 @@ export class FlowService {
       const instance = await this.prisma.whatsappInstance.findUnique({
         where: { id: msg.instanceId },
       });
+
       const flowId = instance?.flowId ?? 'default';
-      const flowDef = this.getFlow(flowId);
+      const flowDef = await this.fetchFlowDefinition(flowId);
 
       const currentStepId = await this.stateService.getStep(
         msg.instanceId,
@@ -75,7 +96,9 @@ export class FlowService {
       };
 
       if (!currentStepId) {
-        const startStepId = user.name ? 'MENU_PRINCIPAL' : 'INITIAL';
+        // Se o fluxo tem um firstStepId definido pelo Studio, usa ele.
+        // Caso contrário, usa os slugs legados.
+        const startStepId = flowDef.firstStepId || (user.name ? 'MENU_PRINCIPAL' : 'INITIAL');
         await this.executeStepChain(startStepId, ctx);
         return;
       }

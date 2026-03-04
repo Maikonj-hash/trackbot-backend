@@ -12,7 +12,7 @@ import { FlowService } from './flow.service';
 
 @Controller('flows')
 export class FlowController {
-  constructor(private readonly flowService: FlowService) {}
+  constructor(private readonly flowService: FlowService) { }
 
   @Post()
   create(
@@ -48,5 +48,10 @@ export class FlowController {
   @Patch(':id/attach/:instanceId')
   attachFlow(@Param('id') id: string, @Param('instanceId') instanceId: string) {
     return this.flowService.attachToInstance(id, instanceId);
+  }
+
+  @Post(':id/publish')
+  publish(@Param('id') id: string) {
+    return this.flowService.publish(id);
   }
 }

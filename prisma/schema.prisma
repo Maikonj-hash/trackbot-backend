@@ -33,13 +33,14 @@ model WhatsappInstance {
 }
 
 model Flow {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  jsonContent Json     // Armazenará a array de Nodes/Edges do Studio Visual Frontend
-  instances   WhatsappInstance[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  jsonContent      Json     // Rascunho de trabalho (Nodes/Edges visuais + BackendFlow rascunho)
+  publishedContent Json?    // Versão "congelada" e validada para execução do bot
+  instances        WhatsappInstance[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 // Para armazenar os estados de autenticação do Baileys

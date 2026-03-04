@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class FlowService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: {
     name: string;
@@ -63,6 +63,25 @@ export class FlowService {
     return this.prisma.whatsappInstance.update({
       where: { id: instanceId },
       data: { flowId: flowId },
+    });
+  }
+
+  // Publicar o fluxo: Move o backendFlow do jsonContent para o publishedContent
+  async publish(id: string) {
+    const flow = await this.findOne(id);
+    const json = flow.jsonContent as any;
+
+    if (!json || !json.backendFlow) {
+      throw new NotFoundException(
+        'Conteúdo de publicação não encontrado no rascunho',
+      );
+    }
+
+    return this.prisma.flow.update({
+      where: { id },
+      data: {
+        publishedContent: json.backendFlow,
+      },
     });
   }
 }

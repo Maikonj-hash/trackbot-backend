@@ -103,5 +103,6 @@ export type AnyFlowStep =
 export interface FlowDefinition {
   id: string;
   name: string;
+  firstStepId?: string | null; // ID do primeiro bloco (startBlock)
   steps: Record<string, AnyFlowStep>;
 }
