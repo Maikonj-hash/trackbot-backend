@@ -114,6 +114,9 @@ export class BaileysProvider implements IMessageProvider {
           const content =
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text ||
+            msg.message.buttonsResponseMessage?.selectedButtonId ||
+            msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+            msg.message.templateButtonReplyMessage?.selectedId ||
             '';
 
           if (this.messageCallback && content) {
@@ -161,12 +164,26 @@ export class BaileysProvider implements IMessageProvider {
     to: string,
     content: string,
     media?: { url: string; type: string; ptt?: boolean },
+    interactive?: {
+      type: 'button' | 'list';
+      buttons?: Array<{ id: string; text: string }>;
+      list?: {
+        buttonText: string;
+        title?: string;
+        footer?: string;
+        sections: Array<{
+          title: string;
+          rows: Array<{ id: string; title: string; description?: string }>;
+        }>;
+      };
+    },
   ): Promise<any> {
     const sock = this.sockets.get(instanceId);
     if (!sock) throw new Error(`Socket not found for instance ${instanceId}`);
 
     const jid = JidHelper.formatJid(to);
 
+    // 1. Envio de Mídia
     if (media) {
       if (media.type === 'audio') {
         return sock.sendMessage(jid, {
@@ -197,6 +214,39 @@ export class BaileysProvider implements IMessageProvider {
       }
     }
 
+    // 2. Envio Interativo (Botões ou Listas)
+    if (interactive) {
+      if (interactive.type === 'button' && interactive.buttons) {
+        return sock.sendMessage(jid, {
+          text: content,
+          buttons: interactive.buttons.map((b) => ({
+            buttonId: b.id,
+            buttonText: { displayText: b.text },
+            type: 1,
+          })),
+          headerType: 1,
+        } as any);
+      }
+
+      if (interactive.type === 'list' && interactive.list) {
+        return sock.sendMessage(jid, {
+          text: content,
+          title: interactive.list.title,
+          footer: interactive.list.footer,
+          buttonText: interactive.list.buttonText,
+          sections: interactive.list.sections.map((s) => ({
+            title: s.title,
+            rows: s.rows.map((r) => ({
+              title: r.title,
+              rowId: r.id,
+              description: r.description,
+            })),
+          })),
+        } as any);
+      }
+    }
+
+    // 3. Texto Plano (Default)
     try {
       return await sock.sendMessage(jid, { text: content });
     } catch (error) {
@@ -204,7 +254,7 @@ export class BaileysProvider implements IMessageProvider {
         `Failed to send message to ${jid} on instance ${instanceId}`,
         error,
       );
-      throw error; // Repassa erro para o BullMQ fazer o retry exponencial
+      throw error;
     }
   }
 

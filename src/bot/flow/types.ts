@@ -26,11 +26,15 @@ export interface TextStep extends BaseStep {
 // 2. Bloco de Opções (Menu 1, 2, 3...)
 export interface OptionsStep extends BaseStep {
   type: 'OPTIONS';
-  content: string; // Ex: "Escolha: 1. Compra 2. Ajuda"
+  content: string; // Ex: "Escolha uma opção:"
   options: {
-    [key: string]: string; // "1" -> "STEP_COMPRA", "2" -> "STEP_AJUDA"
+    [key: string]: string; // "Opção 1" -> "STEP_ID"
   };
-  fallbackStepId?: string; // Pra onde ir se ele digitar "Batata"
+  useNativeButtons?: boolean; // Se true, envia botões/lista em vez de texto
+  listButtonLabel?: string;    // Texto do botão que abre a lista (ex: "Ver Opções")
+  listTitle?: string;         // Título da lista/botão
+  listFooter?: string;        // Rodapé da lista/botão
+  fallbackStepId?: string; // Pra onde ir se ele digitar algo inválido
 }
 
 // 3. Bloco de Input Livre (Qual seu nome?)
