@@ -1,0 +1,31 @@
+# Compiled output
+dist/
+dist-tsc/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Node modules
+node_modules/
+
+# Mac OS
+.DS_Store
+
+# ENV variables (CRITICAL)
+.env
+.env.test
+.env.production
+
+# Database & Sessions Private Caches
+.sessions/
+prisma/*.db
+prisma/*.db-journal
+
+# Extras
+coverage/
+.nyc_output/

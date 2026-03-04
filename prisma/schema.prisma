@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  sessions  ChatSession[]
+  messages  MessageHistory[]
+}
+
+model WhatsappInstance {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?  @unique
+  status      String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, QR_READY
+  flowId      String?  
+  flow        Flow?    @relation(fields: [flowId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Flow {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  jsonContent Json     // Armazenará a array de Nodes/Edges do Studio Visual Frontend
+  instances   WhatsappInstance[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Para armazenar os estados de autenticação do Baileys
+model BaileysAuth {
+  id      String @id
+  data    Json
+}
+
+model ChatSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  step      String   @default("INITIAL")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MessageHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  fromMe    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

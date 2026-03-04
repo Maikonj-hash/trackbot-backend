@@ -1,0 +1,211 @@
+import { Injectable, Logger } from '@nestjs/common';
+import makeWASocket, {
+  DisconnectReason,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+} from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
+import {
+  IMessageProvider,
+  IncomingMessage,
+} from '../interfaces/message-provider.interface';
+import { PrismaService } from '../../prisma/prisma.service';
+import pino from 'pino';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as qrcodeTerminal from 'qrcode-terminal';
+import { JidHelper } from '../helpers/jid.helper';
+
+@Injectable()
+export class BaileysProvider implements IMessageProvider {
+  private sockets: Map<string, ReturnType<typeof makeWASocket>> = new Map();
+  private readonly logger = new Logger(BaileysProvider.name);
+
+  constructor(private prisma: PrismaService) {}
+
+  private messageCallback: (msg: IncomingMessage) => void;
+  private statusCallback: (
+    instanceId: string,
+    status: string,
+    qrCode?: string,
+  ) => void;
+
+  onMessage(callback: (msg: IncomingMessage) => void): void {
+    this.messageCallback = callback;
+  }
+
+  onConnectionStatus(
+    callback: (instanceId: string, status: string, qrCode?: string) => void,
+  ): void {
+    this.statusCallback = callback;
+  }
+
+  async connect(instanceId: string): Promise<void> {
+    // [BLINDAGEM] Previnindo Race Condition: Não permite rodar a conexão duas vezes no mesmo ID se já existir no Map
+    if (this.sockets.has(instanceId)) {
+      this.logger.warn(
+        `Instância ${instanceId} já está rodando ou iniciando. Conexão paralela abortada.`,
+      );
+      return;
+    }
+
+    // Salvamento na pasta temporária do projeto
+    const sessionPath = path.join(process.cwd(), '.sessions', instanceId);
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+
+    this.logger.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
+
+    const sock = makeWASocket({
+      version,
+      auth: state as any,
+      logger: pino({ level: 'silent' }) as any,
+      syncFullHistory: false,
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        qrcodeTerminal.generate(qr, { small: true });
+        this.statusCallback?.(instanceId, 'QR_READY', qr);
+        this.updateInstanceDbStatus(instanceId, 'QR_READY');
+      }
+
+      if (connection === 'close') {
+        const error = (lastDisconnect?.error as Boom)?.output?.statusCode;
+        const shouldReconnect = error !== DisconnectReason.loggedOut;
+        this.logger.warn(
+          `Session ${instanceId} closed, reconnecting: ${shouldReconnect}`,
+        );
+
+        this.statusCallback?.(instanceId, 'DISCONNECTED');
+        this.updateInstanceDbStatus(instanceId, 'DISCONNECTED');
+
+        if (shouldReconnect) {
+          setTimeout(() => this.connect(instanceId), 5000);
+        }
+      } else if (connection === 'open') {
+        this.logger.log(`Session ${instanceId} connected successfully`);
+        this.statusCallback?.(instanceId, 'CONNECTED');
+        this.updateInstanceDbStatus(instanceId, 'CONNECTED');
+      }
+    });
+
+    sock.ev.on('messages.upsert', async (m) => {
+      if (m.type === 'notify') {
+        for (const msg of m.messages) {
+          if (!msg.message || msg.key.remoteJid === 'status@broadcast')
+            continue;
+
+          const sender = msg.key.remoteJid || '';
+          const content =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            '';
+
+          if (this.messageCallback && content) {
+            this.messageCallback({
+              instanceId,
+              sender,
+              content,
+              fromMe: !!msg.key.fromMe,
+              timestamp: new Date((msg.messageTimestamp as number) * 1000),
+              raw: msg,
+            });
+          }
+        }
+      }
+    });
+
+    this.sockets.set(instanceId, sock);
+  }
+
+  async disconnect(instanceId: string): Promise<void> {
+    const sock = this.sockets.get(instanceId);
+    if (sock) {
+      this.logger.log(
+        `Encerando sessão e apagando chaves da instância ${instanceId}...`,
+      );
+      await sock.logout().catch(() => {
+        this.logger.warn(`Falha suave no logout da Meta para ${instanceId}`);
+      });
+      this.sockets.delete(instanceId);
+      await this.updateInstanceDbStatus(instanceId, 'DISCONNECTED');
+    }
+
+    // [BLINDAGEM] Failsafe: Garantindo que as chaves/cache sejam destruídas do disco caso o Baileys deixe lixo.
+    const sessionPath = path.join(process.cwd(), '.sessions', instanceId);
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+      this.logger.log(
+        `Cache local da instância ${instanceId} destruído forçadamente.`,
+      );
+    }
+  }
+
+  async sendMessage(
+    instanceId: string,
+    to: string,
+    content: string,
+    media?: { url: string; type: string; ptt?: boolean },
+  ): Promise<any> {
+    const sock = this.sockets.get(instanceId);
+    if (!sock) throw new Error(`Socket not found for instance ${instanceId}`);
+
+    const jid = JidHelper.formatJid(to);
+
+    if (media) {
+      if (media.type === 'audio') {
+        return sock.sendMessage(jid, {
+          audio: { url: media.url },
+          mimetype: 'audio/mp4',
+          ptt: media.ptt,
+        });
+      }
+      if (media.type === 'image') {
+        return sock.sendMessage(jid, {
+          image: { url: media.url },
+          caption: content,
+        });
+      }
+      if (media.type === 'video') {
+        return sock.sendMessage(jid, {
+          video: { url: media.url },
+          caption: content,
+        });
+      }
+      if (media.type === 'document') {
+        return sock.sendMessage(jid, {
+          document: { url: media.url },
+          mimetype: 'application/pdf',
+          caption: content,
+          fileName: 'Documento',
+        });
+      }
+    }
+
+    try {
+      return await sock.sendMessage(jid, { text: content });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send message to ${jid} on instance ${instanceId}`,
+        error,
+      );
+      throw error; // Repassa erro para o BullMQ fazer o retry exponencial
+    }
+  }
+
+  private async updateInstanceDbStatus(instanceId: string, status: string) {
+    try {
+      await this.prisma.whatsappInstance.update({
+        where: { id: instanceId },
+        data: { status },
+      });
+    } catch {
+      this.logger.error(`Failed to update DB status for ${instanceId}`);
+    }
+  }
+}

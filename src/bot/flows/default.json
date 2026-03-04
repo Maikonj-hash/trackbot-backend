@@ -1,0 +1,52 @@
+{
+    "id": "default",
+    "name": "Lead Generation Default Flow",
+    "steps": {
+        "INITIAL": {
+            "type": "CONDITION",
+            "variable": "user.name",
+            "operator": "IS_NOT_EMPTY",
+            "trueStepId": "MENU_PRINCIPAL",
+            "falseStepId": "SAUDACAO_NOVA"
+        },
+        "SAUDACAO_NOVA": {
+            "type": "TEXT",
+            "content": "Olá! Seja muito bem-vindo ao sistema de atendimento inteligente V2 construido no modelo Typebot! 🚀",
+            "nextStepId": "DELAY_1"
+        },
+        "DELAY_1": {
+            "type": "DELAY",
+            "durationMs": 1500,
+            "nextStepId": "GET_NOME"
+        },
+        "GET_NOME": {
+            "type": "INPUT",
+            "content": "Para a gente começar, como eu posso te chamar?",
+            "saveToVariable": "name",
+            "nextStepId": "MENSAGEM_CADASTRO"
+        },
+        "MENSAGEM_CADASTRO": {
+            "type": "TEXT",
+            "content": "Perfeito! Salvei o seu nome aqui na nossa base de dados (PostgreSQL).",
+            "nextStepId": "MENU_PRINCIPAL"
+        },
+        "MENU_PRINCIPAL": {
+            "type": "OPTIONS",
+            "content": "Como posso te ajudar hoje?\n\n1️⃣ Quero saber sobre a criação do Flow\n2️⃣ Quero falar com um humano",
+            "options": {
+                "1": "SOBRE_FLOW",
+                "2": "HUMANO"
+            }
+        },
+        "SOBRE_FLOW": {
+            "type": "TEXT",
+            "content": "Nós acabamos de implementar o padrão Strategy! Isso significa que agora eu não uso mais mil IFs pra conversar com você. Eu leio um arquivo JSON isolado, e roteio todas as minhas respostas baseadas se você me mandou um INPUT ou escolheu um botão de OPTIONS!",
+            "nextStepId": "MENU_PRINCIPAL"
+        },
+        "HUMANO": {
+            "type": "TEXT",
+            "content": "Atualmente todos os nossos humanos estão ocupados refatorando códigos em NestJS. Tente novamente mais tarde!",
+            "nextStepId": "MENU_PRINCIPAL"
+        }
+    }
+}
