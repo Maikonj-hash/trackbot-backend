@@ -7,7 +7,7 @@ export class InstanceController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessionManager: SessionManagerService,
-  ) {}
+  ) { }
 
   @Post()
   async createInstance(@Body() data: { name: string }) {
@@ -47,5 +47,24 @@ export class InstanceController {
       success: true,
       message: `Instância ${id} desconectada (aguardando novo QR Code).`,
     };
+  }
+
+  @Post(':id/connect')
+  async connectInstance(@Param('id') id: string) {
+    // Força a parada da sessão atual para garantir um novo QR Code caso solicitado
+    await this.sessionManager.stopSession(id);
+    await this.sessionManager.startSession(id);
+    return { success: true, message: `Iniciando tentativa de conexão para ${id}...` };
+  }
+
+  @Post(':id/flow')
+  async associateFlow(
+    @Param('id') id: string,
+    @Body() data: { flowId: string | null },
+  ) {
+    return this.prisma.whatsappInstance.update({
+      where: { id },
+      data: { flowId: data.flowId },
+    });
   }
 }

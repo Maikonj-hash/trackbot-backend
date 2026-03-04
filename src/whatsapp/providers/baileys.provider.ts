@@ -21,7 +21,7 @@ export class BaileysProvider implements IMessageProvider {
   private sockets: Map<string, ReturnType<typeof makeWASocket>> = new Map();
   private readonly logger = new Logger(BaileysProvider.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   private messageCallback: (msg: IncomingMessage) => void;
   private statusCallback: (
@@ -41,12 +41,10 @@ export class BaileysProvider implements IMessageProvider {
   }
 
   async connect(instanceId: string): Promise<void> {
-    // [BLINDAGEM] Previnindo Race Condition: Não permite rodar a conexão duas vezes no mesmo ID se já existir no Map
+    // [BLINDAGEM] Previnindo Duplicação: Se já existe um socket, não precisamos travar o fluxo, 
+    // mas o ideal é que o Controller gerencie o stop/start.
     if (this.sockets.has(instanceId)) {
-      this.logger.warn(
-        `Instância ${instanceId} já está rodando ou iniciando. Conexão paralela abortada.`,
-      );
-      return;
+      this.logger.log(`Refazendo conexão para ${instanceId} para renovação de QR...`);
     }
 
     // Salvamento na pasta temporária do projeto
@@ -74,6 +72,12 @@ export class BaileysProvider implements IMessageProvider {
         this.updateInstanceDbStatus(instanceId, 'QR_READY');
       }
 
+      if (connection === 'connecting') {
+        this.logger.log(`Instância ${instanceId} está pareando/conectando...`);
+        this.statusCallback?.(instanceId, 'CONNECTING');
+        this.updateInstanceDbStatus(instanceId, 'CONNECTING');
+      }
+
       if (connection === 'close') {
         const error = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const shouldReconnect = error !== DisconnectReason.loggedOut;
@@ -88,9 +92,15 @@ export class BaileysProvider implements IMessageProvider {
           setTimeout(() => this.connect(instanceId), 5000);
         }
       } else if (connection === 'open') {
-        this.logger.log(`Session ${instanceId} connected successfully`);
+        const userId = sock.user?.id;
+        const phone = userId ? userId.split(':')[0].split('@')[0] : null;
+
+        this.logger.log(
+          `Session ${instanceId} connected successfully. User: ${phone}`,
+        );
+
         this.statusCallback?.(instanceId, 'CONNECTED');
-        this.updateInstanceDbStatus(instanceId, 'CONNECTED');
+        this.updateInstanceDbStatus(instanceId, 'CONNECTED', phone);
       }
     });
 
@@ -198,14 +208,22 @@ export class BaileysProvider implements IMessageProvider {
     }
   }
 
-  private async updateInstanceDbStatus(instanceId: string, status: string) {
+  private async updateInstanceDbStatus(
+    instanceId: string,
+    status: string,
+    phone?: string | null,
+  ) {
     try {
+      this.logger.log(`Atualizando status no DB: ${instanceId} -> ${status}`);
       await this.prisma.whatsappInstance.update({
         where: { id: instanceId },
-        data: { status },
+        data: {
+          status,
+          ...(phone ? { phone } : {}),
+        },
       });
-    } catch {
-      this.logger.error(`Failed to update DB status for ${instanceId}`);
+    } catch (err) {
+      this.logger.error(`Failed to update DB status for ${instanceId}: ${err.message}`);
     }
   }
 }
