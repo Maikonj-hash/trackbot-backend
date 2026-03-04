@@ -3,9 +3,11 @@ import { FlowController } from './flow.controller';
 import { FlowService } from './flow.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 
+import { BotModule } from '../../bot/bot.module';
+
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, BotModule],
   controllers: [FlowController],
   providers: [FlowService],
 })
-export class FlowModule {}
+export class FlowModule { }

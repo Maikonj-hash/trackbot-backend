@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { FlowService as BotFlowService } from '../../bot/flow/flow.service';
 
 @Injectable()
 export class FlowService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly botFlowService: BotFlowService,
+  ) { }
 
   async create(data: {
     name: string;
@@ -51,13 +55,11 @@ export class FlowService {
 
   async remove(id: string) {
     await this.findOne(id); // Ensure exists
-    // O Prisma desconectará/restringirá baseado na relation se necessário
     return this.prisma.flow.delete({
       where: { id },
     });
   }
 
-  // Permitir associar um fluxo específico a um número de WhatsApp específico
   async attachToInstance(flowId: string, instanceId: string) {
     await this.findOne(flowId); // Ensure exists
     return this.prisma.whatsappInstance.update({
@@ -66,22 +68,30 @@ export class FlowService {
     });
   }
 
-  // Publicar o fluxo: Move o backendFlow do jsonContent para o publishedContent
+  /**
+   * Publicar o fluxo: Move o backendFlow do rascunho (jsonContent) para a produção (publishedContent)
+   * e invalida o cache na memória do bot para atualização instantânea.
+   */
   async publish(id: string) {
     const flow = await this.findOne(id);
     const json = flow.jsonContent as any;
 
     if (!json || !json.backendFlow) {
       throw new NotFoundException(
-        'Conteúdo de publicação não encontrado no rascunho',
+        'Conteúdo de backendFlow não encontrado no rascunho.',
       );
     }
 
-    return this.prisma.flow.update({
+    const updated = await this.prisma.flow.update({
       where: { id },
       data: {
         publishedContent: json.backendFlow,
       },
     });
+
+    // Notar o Bot para limpar o cache desse fluxo
+    this.botFlowService.invalidateCache(id);
+
+    return updated;
   }
 }

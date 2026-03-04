@@ -22,6 +22,14 @@ export class FlowService {
     @InjectQueue('outgoing_messages') private readonly outgoingQueue: Queue,
   ) { }
 
+  /**
+   * Limpa o cache de um fluxo específico para forçar o recarregamento na próxima mensagem.
+   */
+  invalidateCache(flowId: string) {
+    this.flows.delete(flowId);
+    this.logger.log(`Cache invalidated for flow: ${flowId}`);
+  }
+
   private async fetchFlowDefinition(flowId: string): Promise<FlowDefinition> {
     if (this.flows.has(flowId)) return this.flows.get(flowId)!;
 
@@ -47,15 +55,21 @@ export class FlowService {
 
       if (fs.existsSync(targetPath)) {
         const fileContent = fs.readFileSync(targetPath, 'utf8');
-        const flowDef = JSON.parse(fileContent) as FlowDefinition;
-        this.flows.set(flowId, flowDef);
-        return flowDef;
+        try {
+          const flowDef = JSON.parse(fileContent) as FlowDefinition;
+          if (flowDef && flowDef.steps) {
+            this.flows.set(flowId, flowDef);
+            return flowDef;
+          }
+        } catch (jsonErr) {
+          this.logger.error(`Malformed JSON in file: ${targetPath}`, jsonErr);
+        }
       }
 
-      return { id: 'error', name: 'Error', steps: {} };
+      return { id: 'error', name: 'Invalid Flow', steps: {} };
     } catch (e) {
-      this.logger.error(`Failed to load flow for ${flowId}`, e);
-      return { id: 'error', name: 'Error', steps: {} };
+      this.logger.error(`Critical failure loading flow for ${flowId}`, e);
+      return { id: 'error', name: 'Critical Error', steps: {} };
     }
   }
 
