@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Body, Delete, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete, Param, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionManagerService } from '../../whatsapp/session-manager/session-manager.service';
 
 @Controller('instances')
 export class InstanceController {
+  private readonly logger = new Logger(InstanceController.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessionManager: SessionManagerService,
@@ -62,6 +64,22 @@ export class InstanceController {
     @Param('id') id: string,
     @Body() data: { flowId: string | null },
   ) {
+    if (data.flowId) {
+      const flow = await this.prisma.flow.findUnique({
+        where: { id: data.flowId },
+        select: { id: true, publishedContent: true } as any,
+      }) as any;
+
+      if (!flow) {
+        throw new NotFoundException(`Fluxo ${data.flowId} não encontrado.`);
+      }
+
+      if (!flow.publishedContent) {
+        // Apenas um log, não bloqueia, mas é um aviso de inconsistência potencial
+        this.logger.warn(`Associando instância ${id} ao fluxo ${data.flowId} que não possui conteúdo publicado.`);
+      }
+    }
+
     return this.prisma.whatsappInstance.update({
       where: { id },
       data: { flowId: data.flowId },

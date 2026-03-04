@@ -57,7 +57,20 @@ export interface HttpRequestStep extends BaseStep {
   url: string; // "https://api.meusistema.com/v1/lead"
   headers?: Record<string, string>; // Headers customizáveis (ex: Authorization)
   bodyPayload?: Record<string, any>;
-  saveResponseToVariable?: string; // Ex: "responseBody"
+
+  // Caminhos de saída
+  successStepId?: string | null; // Se 2xx
+  failureStepId?: string | null; // Se erro (4xx, 5xx ou timeout)
+
+  // Mapeamento Avançado
+  saveResponseToVariable?: string; // Salva o corpo todo
+  saveStatusToVariable?: string;   // Salva o status code (ex: 200, 404)
+  responseMapping?: Array<{
+    jsonPath: string;     // Ex: "data.user.id"
+    variableName: string; // Ex: "external_id"
+  }>;
+
+  timeout?: number; // ms
 }
 
 // 6. Bloco de Atraso

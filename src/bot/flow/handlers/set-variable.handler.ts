@@ -17,16 +17,28 @@ export class SetVariableHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as SetVariableStep;
 
-    // Neste simulador MVP, armazenaremos varíaveis simples soltas no redis pra não complexificar o SCHEMA
-    const redisKey = `user_vars:${ctx.user.id}:${step.variable}`;
+    const currentMetadata = (ctx.user as any).metadata || {};
+    let newValue: any = step.value;
 
-    // Aqui usariamos o redisService se estivesse injetado globalmente
-    // Para simplificacao no contexto MVP, logamos. O dev integrará seu Redis ou JsonB na producao
+    if (step.action === 'INCREMENT' || step.action === 'DECREMENT') {
+      const currentValue = Number(currentMetadata[step.variable]) || 0;
+      const change = Number(step.value) || 0;
+      newValue = step.action === 'INCREMENT' ? currentValue + change : currentValue - change;
+    }
+
+    const newMetadata = {
+      ...currentMetadata,
+      [step.variable]: newValue
+    };
+
+    await ctx.prisma.user.update({
+      where: { id: ctx.user.id },
+      data: { metadata: newMetadata },
+    });
+
     this.logger.log(
-      `[VAR ENGINE] Var: ${step.variable} | Action: ${step.action} | Value: ${step.value}`,
+      `[VAR ENGINE] User: ${ctx.user.phone} | Var: ${step.variable} | Action: ${step.action} | New Value: ${newValue}`,
     );
-
-    // Isso permite rotinas de Lead Scoring sem o usuario ver nada (Ex. a pessoa clica em 'Ver Precos' e setamos score +10)
 
     return step.nextStepId ?? null;
   }

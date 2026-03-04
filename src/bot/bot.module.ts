@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { StateService } from './state/state.service';
 import { FlowService } from './flow/flow.service';
+import { VariableService } from './flow/variable.service';
 import { BullModule } from '@nestjs/bullmq';
 import { TextHandler } from './flow/handlers/text.handler';
 import { InputHandler } from './flow/handlers/input.handler';
@@ -18,6 +19,7 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
   providers: [
     StateService,
     FlowService,
+    VariableService,
     TextHandler,
     InputHandler,
     OptionsHandler,
@@ -31,4 +33,4 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
   ],
   exports: [FlowService],
 })
-export class BotModule {}
+export class BotModule { }

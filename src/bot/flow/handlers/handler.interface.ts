@@ -3,6 +3,7 @@ import { IncomingMessage } from '../../../whatsapp/interfaces/message-provider.i
 import { StateService } from '../../state/state.service';
 import { Queue } from 'bullmq';
 import { AnyFlowStep } from '../types';
+import { VariableService } from '../variable.service';
 
 export interface StepHandlerContext {
   msg: IncomingMessage;
@@ -10,6 +11,7 @@ export interface StepHandlerContext {
   step: AnyFlowStep;
   flowDef: any;
   stateService: StateService;
+  variableService: VariableService;
   outgoingQueue: Queue;
   prisma: any; // PrismaService
 }

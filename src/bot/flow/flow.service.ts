@@ -6,9 +6,12 @@ import { Queue } from 'bullmq';
 import { IncomingMessage } from '../../whatsapp/interfaces/message-provider.interface';
 import { HandlerFactory } from './handlers/handler.factory';
 import { StepHandlerContext } from './handlers/handler.interface';
+import { VariableService } from './variable.service';
 import { AnyFlowStep, FlowDefinition } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const MAX_STEPS_PER_MESSAGE = 20;
 
 @Injectable()
 export class FlowService {
@@ -19,6 +22,7 @@ export class FlowService {
     private readonly stateService: StateService,
     private readonly prisma: PrismaService,
     private readonly handlerFactory: HandlerFactory,
+    private readonly variableService: VariableService,
     @InjectQueue('outgoing_messages') private readonly outgoingQueue: Queue,
   ) { }
 
@@ -40,8 +44,8 @@ export class FlowService {
         where: { id: flowId },
       });
 
-      if (dbFlow && dbFlow.publishedContent) {
-        const json = dbFlow.publishedContent as any;
+      if (dbFlow && (dbFlow as any).publishedContent) {
+        const json = (dbFlow as any).publishedContent as any;
         // O publishedContent já contém a estrutura FlowDefinition diretamente
         const flowDef = json as FlowDefinition;
         this.flows.set(flowId, flowDef);
@@ -105,6 +109,7 @@ export class FlowService {
         step: null as any,
         flowDef,
         stateService: this.stateService,
+        variableService: this.variableService,
         outgoingQueue: this.outgoingQueue,
         prisma: this.prisma,
       };
@@ -119,7 +124,10 @@ export class FlowService {
 
       const currentStep = flowDef.steps[currentStepId];
       if (!currentStep) {
+        this.logger.warn(`Step ${currentStepId} not found in flow ${flowId}. Restarting flow for ${phone}.`);
         await this.stateService.clearStep(msg.instanceId, phone);
+        const startStepId = flowDef.firstStepId || (user.name ? 'MENU_PRINCIPAL' : 'INITIAL');
+        await this.executeStepChain(startStepId, ctx);
         return;
       }
 
@@ -154,9 +162,16 @@ export class FlowService {
    */
   private async executeStepChain(startStepId: string, ctx: StepHandlerContext) {
     let currentStepId: string | null = startStepId;
+    let stepsCount = 0;
 
     try {
       while (currentStepId) {
+        if (stepsCount >= MAX_STEPS_PER_MESSAGE) {
+          this.logger.warn(`Max steps (${MAX_STEPS_PER_MESSAGE}) reached for ${ctx.user.phone}. Potential loop?`);
+          break;
+        }
+        stepsCount++;
+
         const step = ctx.flowDef.steps[currentStepId];
         if (!step) {
           await ctx.stateService.clearStep(ctx.msg.instanceId, ctx.user.phone);

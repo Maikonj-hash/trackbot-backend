@@ -18,10 +18,15 @@ export class OptionsHandler implements IStepHandler {
     }
 
     // Input inválido, responde erro e retorna null (fica travado nesse step)
+    const resolvedContent = ctx.variableService.resolve(step.content, {
+      user: ctx.user,
+      flowDef: ctx.flowDef,
+    });
+
     await ctx.outgoingQueue.add('send', {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
-      content: 'Opção inválida, tenta novamente:\n\n' + step.content,
+      content: 'Opção inválida, tenta novamente:\n\n' + resolvedContent,
       delayMs: 1000,
     });
     return null;
@@ -30,10 +35,15 @@ export class OptionsHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as OptionsStep;
 
+    const resolvedContent = ctx.variableService.resolve(step.content, {
+      user: ctx.user,
+      flowDef: ctx.flowDef,
+    });
+
     await ctx.outgoingQueue.add('send', {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
-      content: step.content,
+      content: resolvedContent,
       delayMs: 1500,
     });
 

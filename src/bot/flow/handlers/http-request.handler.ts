@@ -16,55 +16,121 @@ export class HttpRequestHandler implements IStepHandler {
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as HttpRequestStep;
+    let responseStatus: number | null = null;
+    let responseData: any = {};
 
     try {
-      this.logger.log(
-        `[HTTP REQUEST] Disparando ${step.method} para ${step.url}`,
-      );
-
-      // Aqui substituímos possíveis tags de variaveis nos payloads.
-      // Exemplo: se no JSON ele mandou { "name": "{{user.name}}" }, fariamos o parse.
-      // Isso será aprofundado na engine de "Variables Resolver".
-      const parsedBody = step.bodyPayload;
-
-      // Se for POST e tivermos injetado a variável secreta "Toda_Conversa",
-      // no banco extrairiamos e enviariamos o array history
-
-      // Combina Headers nativos com os Headers injetados pelo usuário no Frontend
-      const requestHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(step.headers || {}),
-      };
-
-      // Disparo usando fetch nativo
-      const response = await fetch(step.url, {
-        method: step.method,
-        headers: requestHeaders,
-        body:
-          ['POST', 'PUT', 'PATCH'].includes(step.method) && parsedBody
-            ? JSON.stringify(parsedBody)
-            : undefined,
+      // 1. Interpolar URL
+      const url = ctx.variableService.resolve(step.url, {
+        user: ctx.user,
+        flowDef: ctx.flowDef,
       });
 
-      const responseData = await response.json();
+      this.logger.log(`[HTTP REQUEST] Disparando ${step.method} para ${url}`);
 
-      this.logger.log(`[HTTP RESPONSE] Status: ${response.status}`);
+      // 2. Interpolar Headers
+      const rawHeaders = step.headers || {};
+      const requestHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
 
-      // O pulo do gato: Se o usuário definiu "saveResponseToVariable", nós salvamos
-      // a resposta da API do cliente no Redis do Bot para usar dinamicamente depois!
+      for (const [key, value] of Object.entries(rawHeaders)) {
+        requestHeaders[key] = ctx.variableService.resolve(String(value), {
+          user: ctx.user,
+          flowDef: ctx.flowDef,
+        });
+      }
+
+      // 3. Interpolar Body (se houver)
+      let body: any = undefined;
+      if (['POST', 'PUT', 'PATCH'].includes(step.method) && step.bodyPayload) {
+        const bodyContent = typeof step.bodyPayload === 'string'
+          ? step.bodyPayload
+          : JSON.stringify(step.bodyPayload);
+
+        body = ctx.variableService.resolve(bodyContent, {
+          user: ctx.user,
+          flowDef: ctx.flowDef,
+        });
+      }
+
+      // 4. Timeout (Default 10s se não especificado)
+      const timeout = step.timeout || 10000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      // 5. Disparo
+      const response = await fetch(url, {
+        method: step.method,
+        headers: requestHeaders,
+        body,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      responseStatus = response.status;
+      const responseText = await response.text().catch(() => '');
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (err) {
+        responseData = responseText; // Fallback para texto bruto se não for JSON
+      }
+
+      this.logger.log(`[HTTP RESPONSE] Status: ${responseStatus}`);
+
+      // 6. Persistência de Dados
+      let metadataUpdates: any = {};
+
+      if (step.saveStatusToVariable) {
+        metadataUpdates[step.saveStatusToVariable] = responseStatus;
+      }
+
       if (step.saveResponseToVariable) {
-        this.logger.log(
-          `-> Salvando retorno na variável: ${step.saveResponseToVariable}`,
-        );
-        // ctx.redis.set(`user_vars:${ctx.user.id}:${step.saveResponseToVariable}`, JSON.stringify(responseData));
+        metadataUpdates[step.saveResponseToVariable] = responseData;
+      }
+
+      if (step.responseMapping && Array.isArray(step.responseMapping)) {
+        for (const mapping of step.responseMapping) {
+          const value = this.getDeepValue(responseData, mapping.jsonPath);
+          if (value !== undefined) {
+            metadataUpdates[mapping.variableName] = value;
+          }
+        }
+      }
+
+      if (Object.keys(metadataUpdates).length > 0) {
+        const currentMetadata = (ctx.user as any).metadata || {};
+        await ctx.prisma.user.update({
+          where: { id: ctx.user.id },
+          data: { metadata: { ...currentMetadata, ...metadataUpdates } },
+        });
+      }
+
+      // 7. Roteamento
+      if (responseStatus >= 200 && responseStatus < 300) {
+        return step.successStepId || step.nextStepId || null;
+      } else {
+        return step.failureStepId || step.nextStepId || null;
       }
     } catch (error) {
       this.logger.error(`[HTTP REQUEST FAILED] ${step.url}`, error);
-      // Em cenários criticos, talvez o cliente quisesse pausar. Mas como webhook
-      // pode cair e voltar, logamos o erro e o bot segue o fluxo normal.
-    }
 
-    // Prossegue silenciosamente para o próximo componente de resposta do bot
-    return step.nextStepId ?? null;
+      if (step.saveStatusToVariable) {
+        const currentMetadata = (ctx.user as any).metadata || {};
+        await ctx.prisma.user.update({
+          where: { id: ctx.user.id },
+          data: { metadata: { ...currentMetadata, [step.saveStatusToVariable]: 500 } },
+        });
+      }
+
+      return step.failureStepId || step.nextStepId || null;
+    }
+  }
+
+  private getDeepValue(obj: any, path: string): any {
+    if (!obj || !path) return undefined;
+    return path.split('.').reduce((prev, curr) => {
+      return prev ? prev[curr] : undefined;
+    }, obj);
   }
 }

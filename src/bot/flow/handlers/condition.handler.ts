@@ -18,40 +18,42 @@ export class ConditionHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as ConditionStep;
 
-    // Engine básica de extração de valor (Ex: user.name, user.createdAt)
-    let leftValue: any = null;
-    if (step.variable.startsWith('user.')) {
-      const field = step.variable.split('.')[1];
-      leftValue = (ctx.user as any)[field];
-    } else {
-      // Futuramente meta data (JSONB)
-    }
+    // Resolve a variável usando o VariableService (como se fosse um placeholder em texto)
+    // Mas aqui extraímos o valor real. O resolve retorna string, o que é seguro para comparação.
+    const leftValue = ctx.variableService.resolve(`{{${step.variable}}}`, {
+      user: ctx.user,
+      flowDef: ctx.flowDef,
+    });
 
     const rightValue = step.value;
     let isTrue = false;
 
+    // Se o VariableService não encontrou a variável, ele retorna o próprio placeholder {{...}}
+    // Marcamos como vazio/null para a lógica de comparação abaixo
+    const finalLeftValue = leftValue === `{{${step.variable}}}` ? '' : leftValue;
+
     switch (step.operator) {
       case 'EQUALS':
-        isTrue = String(leftValue) === String(rightValue);
+        isTrue = String(finalLeftValue) === String(rightValue);
         break;
       case 'NOT_EQUALS':
-        isTrue = String(leftValue) !== String(rightValue);
+        isTrue = String(finalLeftValue) !== String(rightValue);
         break;
       case 'IS_EMPTY':
-        isTrue = !leftValue || String(leftValue).trim() === '';
+        isTrue = !finalLeftValue || String(finalLeftValue).trim() === '';
         break;
       case 'IS_NOT_EMPTY':
-        isTrue = !!leftValue && String(leftValue).trim() !== '';
+        isTrue = !!finalLeftValue && String(finalLeftValue).trim() !== '';
         break;
       case 'CONTAINS':
-        isTrue = String(leftValue)
+        isTrue = String(finalLeftValue)
           .toLowerCase()
           .includes(String(rightValue).toLowerCase());
         break;
     }
 
     this.logger.log(
-      `[CONDITION] ${step.variable} ${step.operator} ${rightValue} => ${isTrue}`,
+      `[CONDITION] ${step.variable} (${finalLeftValue}) ${step.operator} ${rightValue} => ${isTrue}`,
     );
     return isTrue ? step.trueStepId : step.falseStepId;
   }

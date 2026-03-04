@@ -20,10 +20,15 @@ export class TextHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as TextStep;
 
+    const content = ctx.variableService.resolve(step.content, {
+      user: ctx.user,
+      flowDef: ctx.flowDef,
+    });
+
     await ctx.outgoingQueue.add('send', {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
-      content: step.content,
+      content,
       delayMs: 1500, // Delay padrão global
     });
 

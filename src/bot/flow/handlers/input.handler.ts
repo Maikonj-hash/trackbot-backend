@@ -10,9 +10,6 @@ export class InputHandler implements IStepHandler {
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as InputStep;
-
-    // Salva a variavel dinamicamente no Prisma (JSON metadata)
-    // Para fins do exemplo, se for 'name', salva nativo, senão num JSONB
     const value = ctx.msg.content.trim();
 
     if (step.saveToVariable === 'name') {
@@ -20,10 +17,15 @@ export class InputHandler implements IStepHandler {
         where: { id: ctx.user.id },
         data: { name: value },
       });
-    } else if (step.saveToVariable === 'phone') {
-      // Ignora phone pq é primary key
-    } else {
-      // Seria Metadata JSON
+    } else if (step.saveToVariable && step.saveToVariable !== 'phone') {
+      // Salva no JSONB Metadata
+      const currentMetadata = (ctx.user as any).metadata || {};
+      const newMetadata = { ...currentMetadata, [step.saveToVariable]: value };
+
+      await ctx.prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { metadata: newMetadata },
+      });
     }
 
     return step.nextStepId ?? null;
@@ -32,10 +34,15 @@ export class InputHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as InputStep;
 
+    const content = ctx.variableService.resolve(step.content, {
+      user: ctx.user,
+      flowDef: ctx.flowDef,
+    });
+
     await ctx.outgoingQueue.add('send', {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
-      content: step.content,
+      content,
       delayMs: 1500,
     });
 
