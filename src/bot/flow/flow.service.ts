@@ -84,11 +84,21 @@ export class FlowService {
     try {
       let user = await this.prisma.user.findUnique({ where: { phone } });
       if (!user) {
-        user = await this.prisma.user.create({ data: { phone } });
+        user = await this.prisma.user.create({
+          data: {
+            phone,
+            instanceId: msg.instanceId
+          }
+        });
       }
 
       await this.prisma.messageHistory.create({
-        data: { userId: user.id, content: msg.content, fromMe: false },
+        data: {
+          userId: user.id,
+          content: msg.content,
+          fromMe: false,
+          instanceId: msg.instanceId
+        },
       });
 
       const instance = await this.prisma.whatsappInstance.findUnique({

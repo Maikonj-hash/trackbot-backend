@@ -8,7 +8,7 @@ export type FlowStepType =
   | 'MEDIA' // Envio de PTT (audio), Imagens ou Videos
   | 'SET_VARIABLE' // Operações matemáticas ou setagem literal em variaveis de contexto
   | 'HANDOVER' // Transfere pro atendimento humano e avisa no ws
-  | 'LEAD_CAPTURE' // Captura múltipla de dados (Formulário)
+  | 'CUSTOMER_IDENTIFICATION' // Captura múltipla de dados (Formulário)
   | 'END'; // Encerra forçadamente o fluxo
 
 // Bloco Base Genérico
@@ -59,7 +59,7 @@ export interface ConditionStep extends BaseStep {
 export interface HttpRequestStep extends BaseStep {
   type: 'HTTP_REQUEST';
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  url: string; // "https://api.meusistema.com/v1/lead"
+  url: string; // "https://api.meusistema.com/v1/cliente"
   headers?: Record<string, string>; // Headers customizáveis (ex: Authorization)
   bodyPayload?: Record<string, any>;
 
@@ -107,17 +107,17 @@ export interface HandoverStep extends BaseStep {
   department?: string; // Opcional (rotear pra Financeiro, etc)
 }
 
-// 10. Bloco de Captura de Leads (Formulário Multi-Campo)
-export interface LeadCaptureField {
+// 10. Bloco de Identificação de Cliente (Formulário Multi-Campo)
+export interface CustomerIdentificationField {
   label: string;
   type: 'TEXT' | 'EMAIL' | 'PHONE' | 'NUMBER' | 'CPF';
   saveToVariable: string;
 }
 
-export interface LeadCaptureStep extends BaseStep {
-  type: 'LEAD_CAPTURE';
+export interface CustomerIdentificationStep extends BaseStep {
+  type: 'CUSTOMER_IDENTIFICATION';
   content: string; // "Olá! Para começarmos, preencha seus dados:"
-  fields: LeadCaptureField[];
+  fields: CustomerIdentificationField[];
   submitButtonText?: string;
   skipIfAlreadyFilled?: boolean; // Se true, o Handler pula campos que já tenham valor no user.metadata
 }
@@ -132,7 +132,7 @@ export type AnyFlowStep =
   | MediaStep
   | SetVariableStep
   | HandoverStep
-  | LeadCaptureStep;
+  | CustomerIdentificationStep;
 
 export interface FlowDefinition {
   id: string;

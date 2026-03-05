@@ -1,6 +1,6 @@
 {
     "id": "default",
-    "name": "Lead Generation Default Flow",
+    "name": "Fluxo Padrão de Identificação de Clientes",
     "steps": {
         "INITIAL": {
             "type": "CONDITION",

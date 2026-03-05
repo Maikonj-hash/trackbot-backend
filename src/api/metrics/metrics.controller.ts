@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('metrics')
 export class MetricsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   @Get('dashboard')
   async getDashboardMetrics() {
@@ -17,7 +17,7 @@ export class MetricsController {
     return {
       status: 'success',
       data: {
-        totalUsers, // Ex: Quantidade total de Leads Capturados
+        totalUsers, // Ex: Quantidade total de Clientes Identificados
         totalInstances, // Ex: Quantidade de Chips de Clientes rodando
         totalMessages, // Ex: Volume total trafegado no sistema hoje
       },

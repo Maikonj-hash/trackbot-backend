@@ -12,7 +12,7 @@ import { HandoverHandler } from './flow/handlers/handover.handler';
 import { MediaHandler } from './flow/handlers/media.handler';
 import { SetVariableHandler } from './flow/handlers/set-variable.handler';
 import { HttpRequestHandler } from './flow/handlers/http-request.handler';
-import { LeadCaptureHandler } from './flow/handlers/lead-capture.handler';
+import { CustomerIdentificationHandler } from './flow/handlers/customer-identification.handler';
 import { HandlerFactory } from './flow/handlers/handler.factory';
 
 @Module({
@@ -30,7 +30,7 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     MediaHandler,
     SetVariableHandler,
     HttpRequestHandler,
-    LeadCaptureHandler,
+    CustomerIdentificationHandler,
     HandlerFactory,
   ],
   exports: [FlowService],

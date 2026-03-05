@@ -20,6 +20,10 @@ model User {
   sessions  ChatSession[]
   messages  MessageHistory[]
   metadata  Json?            @default("{}")
+
+  // Rastreabilidade
+  instanceId String?
+  instance   WhatsappInstance? @relation(fields: [instanceId], references: [id])
 }
 
 model WhatsappInstance {
@@ -37,6 +41,8 @@ model WhatsappInstance {
   
   flowId            String?  
   flow              Flow?    @relation(fields: [flowId], references: [id])
+  users             User[]
+  messages          MessageHistory[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -73,5 +79,9 @@ model MessageHistory {
   user      User     @relation(fields: [userId], references: [id])
   content   String
   fromMe    Boolean  @default(false)
+  
+  instanceId String?
+  instance   WhatsappInstance? @relation(fields: [instanceId], references: [id])
+  
   createdAt DateTime @default(now())
 }

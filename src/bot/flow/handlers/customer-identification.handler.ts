@@ -1,26 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IStepHandler, StepHandlerContext } from './handler.interface';
-import { LeadCaptureStep, LeadCaptureField } from '../types';
+import { CustomerIdentificationStep, CustomerIdentificationField } from '../types';
 
 @Injectable()
-export class LeadCaptureHandler implements IStepHandler {
-    private readonly logger = new Logger(LeadCaptureHandler.name);
+export class CustomerIdentificationHandler implements IStepHandler {
+    private readonly logger = new Logger(CustomerIdentificationHandler.name);
 
     canHandle(type: string): boolean {
-        return type === 'LEAD_CAPTURE';
+        return type === 'CUSTOMER_IDENTIFICATION';
     }
 
     async processInput(ctx: StepHandlerContext): Promise<string | null> {
-        const step = ctx.step as LeadCaptureStep;
+        const step = ctx.step as CustomerIdentificationStep;
         const instanceId = ctx.msg.instanceId;
         const userPhone = ctx.msg.sender;
         const value = ctx.msg.content.trim();
 
-        const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'lead_field_idx');
+        const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'identification_field_idx');
         let currentIndex = parseInt(rawIndex || '0');
 
         if (isNaN(currentIndex) || currentIndex >= step.fields.length) {
-            this.logger.warn(`[LEAD_CAPTURE] Invalid index ${currentIndex} for user ${userPhone}`);
+            this.logger.warn(`[IDENTIFICATION] Invalid index ${currentIndex} for user ${userPhone}`);
             await ctx.stateService.clearMetadata(instanceId, userPhone);
             return step.nextStepId ?? null;
         }
@@ -43,21 +43,21 @@ export class LeadCaptureHandler implements IStepHandler {
         currentIndex++;
 
         if (currentIndex < step.fields.length) {
-            await ctx.stateService.setMetadata(instanceId, userPhone, 'lead_field_idx', currentIndex.toString());
+            await ctx.stateService.setMetadata(instanceId, userPhone, 'identification_field_idx', currentIndex.toString());
             return step.id;
         } else {
             await ctx.stateService.clearMetadata(instanceId, userPhone);
-            this.logger.log(`[LEAD_CAPTURE] User ${userPhone} finished form ${step.id}`);
+            this.logger.log(`[IDENTIFICATION] User ${userPhone} finished identification ${step.id}`);
             return step.nextStepId ?? null;
         }
     }
 
     async executeStep(ctx: StepHandlerContext): Promise<string | null> {
-        const step = ctx.step as LeadCaptureStep;
+        const step = ctx.step as CustomerIdentificationStep;
         const instanceId = ctx.msg.instanceId;
         const userPhone = ctx.msg.sender;
 
-        const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'lead_field_idx');
+        const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'identification_field_idx');
         let currentIndex = parseInt(rawIndex || '0');
 
         if (step.skipIfAlreadyFilled) {
@@ -70,7 +70,7 @@ export class LeadCaptureHandler implements IStepHandler {
                     break;
                 }
             }
-            await ctx.stateService.setMetadata(instanceId, userPhone, 'lead_field_idx', currentIndex.toString());
+            await ctx.stateService.setMetadata(instanceId, userPhone, 'identification_field_idx', currentIndex.toString());
         }
 
         if (currentIndex >= step.fields.length) {
@@ -100,7 +100,7 @@ export class LeadCaptureHandler implements IStepHandler {
         return null;
     }
 
-    private validateField(field: LeadCaptureField, value: string): boolean {
+    private validateField(field: CustomerIdentificationField, value: string): boolean {
         if (!value) return false;
 
         switch (field.type) {
@@ -144,7 +144,7 @@ export class LeadCaptureHandler implements IStepHandler {
         return true;
     }
 
-    private async saveFieldValue(ctx: StepHandlerContext, field: LeadCaptureField, value: string) {
+    private async saveFieldValue(ctx: StepHandlerContext, field: CustomerIdentificationField, value: string) {
         if (field.saveToVariable === 'name') {
             await ctx.prisma.user.update({
                 where: { id: ctx.user.id },
@@ -163,7 +163,7 @@ export class LeadCaptureHandler implements IStepHandler {
         }
     }
 
-    private async checkIfFieldHasValue(ctx: StepHandlerContext, field: LeadCaptureField): Promise<boolean> {
+    private async checkIfFieldHasValue(ctx: StepHandlerContext, field: CustomerIdentificationField): Promise<boolean> {
         if (field.saveToVariable === 'name') {
             return !!ctx.user.name && ctx.user.name !== 'User';
         }
