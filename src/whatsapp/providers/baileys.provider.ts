@@ -143,7 +143,7 @@ export class BaileysProvider implements IMessageProvider {
         `Encerando sessão e apagando chaves da instância ${instanceId}...`,
       );
       await sock.logout().catch(() => {
-        this.logger.warn(`Falha suave no logout da Meta para ${instanceId}`);
+        this.logger.warn(`Falha suave no logout para ${instanceId}`);
       });
       this.sockets.delete(instanceId);
       await this.updateInstanceDbStatus(instanceId, 'DISCONNECTED');
