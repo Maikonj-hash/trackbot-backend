@@ -8,6 +8,7 @@ export type FlowStepType =
   | 'MEDIA' // Envio de PTT (audio), Imagens ou Videos
   | 'SET_VARIABLE' // Operações matemáticas ou setagem literal em variaveis de contexto
   | 'HANDOVER' // Transfere pro atendimento humano e avisa no ws
+  | 'LEAD_CAPTURE' // Captura múltipla de dados (Formulário)
   | 'END'; // Encerra forçadamente o fluxo
 
 // Bloco Base Genérico
@@ -106,6 +107,21 @@ export interface HandoverStep extends BaseStep {
   department?: string; // Opcional (rotear pra Financeiro, etc)
 }
 
+// 10. Bloco de Captura de Leads (Formulário Multi-Campo)
+export interface LeadCaptureField {
+  label: string;
+  type: 'TEXT' | 'EMAIL' | 'PHONE' | 'NUMBER' | 'CPF';
+  saveToVariable: string;
+}
+
+export interface LeadCaptureStep extends BaseStep {
+  type: 'LEAD_CAPTURE';
+  content: string; // "Olá! Para começarmos, preencha seus dados:"
+  fields: LeadCaptureField[];
+  submitButtonText?: string;
+  skipIfAlreadyFilled?: boolean; // Se true, o Handler pula campos que já tenham valor no user.metadata
+}
+
 export type AnyFlowStep =
   | TextStep
   | OptionsStep
@@ -115,7 +131,8 @@ export type AnyFlowStep =
   | DelayStep
   | MediaStep
   | SetVariableStep
-  | HandoverStep;
+  | HandoverStep
+  | LeadCaptureStep;
 
 export interface FlowDefinition {
   id: string;

@@ -36,4 +36,27 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
   async clearStep(instanceId: string, userPhone: string): Promise<void> {
     await this.redis.del(`session:${instanceId}:${userPhone}:step`);
   }
+
+  async setMetadata(
+    instanceId: string,
+    userPhone: string,
+    key: string,
+    value: string,
+  ): Promise<void> {
+    const hashKey = `session:${instanceId}:${userPhone}:meta`;
+    await this.redis.hset(hashKey, key, value);
+    await this.redis.expire(hashKey, 86400); // 24h
+  }
+
+  async getMetadata(
+    instanceId: string,
+    userPhone: string,
+    key: string,
+  ): Promise<string | null> {
+    return this.redis.hget(`session:${instanceId}:${userPhone}:meta`, key);
+  }
+
+  async clearMetadata(instanceId: string, userPhone: string): Promise<void> {
+    await this.redis.del(`session:${instanceId}:${userPhone}:meta`);
+  }
 }

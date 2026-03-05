@@ -9,6 +9,7 @@ import { HandoverHandler } from './handover.handler';
 import { MediaHandler } from './media.handler';
 import { SetVariableHandler } from './set-variable.handler';
 import { HttpRequestHandler } from './http-request.handler';
+import { LeadCaptureHandler } from './lead-capture.handler';
 import { AnyFlowStep } from '../types';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class HandlerFactory {
     media: MediaHandler,
     setVariable: SetVariableHandler,
     httpRequest: HttpRequestHandler,
+    leadCapture: LeadCaptureHandler,
   ) {
     this.handlers = [
       text,
@@ -36,6 +38,7 @@ export class HandlerFactory {
       media,
       setVariable,
       httpRequest,
+      leadCapture,
     ];
   }
 
