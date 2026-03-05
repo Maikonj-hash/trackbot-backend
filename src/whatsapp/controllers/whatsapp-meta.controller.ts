@@ -1,19 +1,43 @@
-import { Controller, Get, Post, Req, Res, HttpStatus, Logger, Query, Body } from '@nestjs/common';
+import { Controller, Get, Post, Req, Res, HttpStatus, Logger, Query, Body, Header } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProviderFactory } from '../providers/provider.factory';
 import { MetaOfficialProvider } from '../providers/meta-official.provider';
 import { IncomingMessage } from '../interfaces/message-provider.interface';
+import * as crypto from 'crypto';
 
 @Controller('webhook/meta')
 export class WhatsappMetaController {
     private readonly logger = new Logger(WhatsappMetaController.name);
+    private readonly APP_SECRET = process.env.META_APP_SECRET; // Deve ser configurado no .env
 
     constructor(
         private readonly prisma: PrismaService,
         private readonly providerFactory: ProviderFactory,
     ) { }
 
+    /**
+     * Valida se a requisição veio realmente da Meta comparando o HMAC.
+     */
+    private validateSignature(req: Request, body: any): boolean {
+        if (!this.APP_SECRET) {
+            this.logger.warn('META_APP_SECRET não configurado. Pulando validação de assinatura (Inseguro).');
+            return true;
+        }
+
+        const signature = req.headers['x-hub-signature-256'] as string;
+        if (!signature) return false;
+
+        const [algo, hash] = signature.split('=');
+        if (algo !== 'sha256') return false;
+
+        const expectedHash = crypto
+            .createHmac('sha256', this.APP_SECRET)
+            .update(JSON.stringify(body))
+            .digest('hex');
+
+        return hash === expectedHash;
+    }
     /**
      * Endpoint usado pela Meta para validar a configuração do Webhook (GET)
      * A Meta envia um hub.challenge que precisamos devolver junto com a validação do token (hub.verify_token).
@@ -50,9 +74,15 @@ export class WhatsappMetaController {
      * Endpoint usado pela Meta para POST de novas mensagens (Eventos).
      */
     @Post()
-    async receiveWebhook(@Body() body: any, @Res() res: Response) {
+    async receiveWebhook(@Body() body: any, @Req() req: Request, @Res() res: Response) {
+        // Validação de segurança HMAC
+        if (!this.validateSignature(req, body)) {
+            this.logger.warn('[META WEBHOOK] Assinatura inválida detectada. Ignorando.');
+            // Retornamos 200 para a Meta não suspender, mas não processamos.
+            return res.sendStatus(HttpStatus.OK);
+        }
+
         // Regra de ouro da Meta: Sempre retorne 200 OK imediatamente para evitar bloqueios do Webhook.
-        // Atrasos de processamento ou erros 500 podem fazer a Meta suspender seu App.
         res.sendStatus(HttpStatus.OK);
 
         this.logger.log(`[META WEBHOOK] Evento recebido: ${JSON.stringify(body)}`);

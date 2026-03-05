@@ -12,12 +12,28 @@ export class InstanceController {
   ) { }
 
   @Post()
-  async createInstance(@Body() data: { name: string }) {
+  async createInstance(@Body() data: {
+    name: string;
+    provider?: string;
+    metaToken?: string;
+    metaPhoneNumberId?: string;
+    metaWabaId?: string;
+    metaVerifyToken?: string;
+  }) {
     const instance = await this.prisma.whatsappInstance.create({
-      data: { name: data.name },
+      data: {
+        name: data.name,
+        provider: data.provider || 'BAILEYS',
+        metaToken: data.metaToken,
+        metaPhoneNumberId: data.metaPhoneNumberId,
+        metaWabaId: data.metaWabaId,
+        metaVerifyToken: data.metaVerifyToken,
+      },
     });
 
-    // Dispara criação da conexão, a Engine do Baileys subirá e disparará o QR via Socket
+    // Dispara criação da conexão
+    // No caso da Meta, isso validará as credenciais virtualmente.
+    // No caso do Baileys, iniciará o processo de multi-device do zero.
     await this.sessionManager.startSession(instance.id);
     return instance;
   }
