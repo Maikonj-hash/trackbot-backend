@@ -1,11 +1,10 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, forwardRef, Inject } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { BaileysProvider } from '../providers/baileys.provider';
+import { ProviderFactory } from '../providers/provider.factory';
 import { IncomingMessage } from '../interfaces/message-provider.interface';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EventsGateway } from '../../gateway/events/events.gateway';
-import { forwardRef, Inject } from '@nestjs/common';
 
 @Injectable()
 export class SessionManagerService implements OnModuleInit {
@@ -13,18 +12,11 @@ export class SessionManagerService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly messageProvider: BaileysProvider,
+    private readonly providerFactory: ProviderFactory,
     @InjectQueue('incoming_messages') private readonly incomingQueue: Queue,
     @Inject(forwardRef(() => EventsGateway))
     private readonly gateway: EventsGateway,
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    this.messageProvider.onMessage(this.handleIncomingMessage.bind(this));
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    this.messageProvider.onConnectionStatus(
-      this.handleConnectionStatus.bind(this),
-    );
-  }
+  ) { }
 
   async onModuleInit() {
     this.logger.log('Buscando sessões pendentes no banco de dados...');
@@ -32,9 +24,7 @@ export class SessionManagerService implements OnModuleInit {
 
     for (const instance of instances) {
       if (instance.status !== 'DISCONNECTED') {
-        this.logger.log(
-          `Tentando reconectar instância: ${instance.name} (${instance.id})`,
-        );
+        this.logger.log(`Tentando reconectar instância: ${instance.name} (${instance.id}) via Provider: ${instance.provider}`);
         await this.startSession(instance.id);
       }
     }
@@ -42,22 +32,30 @@ export class SessionManagerService implements OnModuleInit {
 
   async startSession(instanceId: string) {
     try {
-      await this.messageProvider.connect(instanceId);
+      const provider = await this.providerFactory.getProvider(instanceId);
+
+      // Amarra os eventos pra esta instância específica neste provedor instanciado
+      provider.onMessage(this.handleIncomingMessage.bind(this));
+      provider.onConnectionStatus(this.handleConnectionStatus.bind(this));
+
+      await provider.connect(instanceId);
     } catch (error) {
       this.logger.error(`Erro ao iniciar sessão ${instanceId}`, error);
     }
   }
 
   async stopSession(instanceId: string) {
-    // Apenas desloga do WhatsApp Web e limpa o cache local
-    await this.messageProvider.disconnect(instanceId);
+    try {
+      const provider = await this.providerFactory.getProvider(instanceId);
+      await provider.disconnect(instanceId);
+      this.providerFactory.removeProvider(instanceId);
+    } catch (err) {
+      this.logger.error('Erro ao parar sessão', err);
+    }
   }
 
   async deleteSession(instanceId: string) {
-    // 1. Desconecta o Bot e limpa lixo da pasta '.sessions'
     await this.stopSession(instanceId);
-
-    // 2. Remove o registro mestre do Postgres
     await this.prisma.whatsappInstance.delete({
       where: { id: instanceId },
     });
@@ -68,33 +66,28 @@ export class SessionManagerService implements OnModuleInit {
     to: string,
     content: string,
     media?: { url: string; type: string; ptt?: boolean },
+    interactive?: any,
   ): Promise<any> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const result = await this.messageProvider.sendMessage(
-      instanceId,
-      to,
-      content,
-      media,
-    );
+    const provider = await this.providerFactory.getProvider(instanceId);
 
-    // [SAAS] Emite para o Painel Web (Atendente Humano) que o robô (ou admin) enviou essa mensagem pra renderizar o balãozinho verde.
+    // Passa o interactive se existir
+    const result = await provider.sendMessage(instanceId, to, content, media, interactive);
+
+    // Emite para o Painel Web
     this.gateway.emit('new_message', {
       instanceId,
-      sender: to, // Pra quem foi a mensagem
+      sender: to,
       content,
-      fromMe: true, // Informamos à Tela que esta veio do nosso lado (Verde)
+      fromMe: true,
       timestamp: new Date(),
     });
 
     return result;
   }
 
-  private async handleIncomingMessage(msg: IncomingMessage) {
-    this.logger.log(
-      `[NOVA MSG] Instância: ${msg.instanceId} | De: ${msg.sender} | Enfileirando...`,
-    );
+  public async handleIncomingMessage(msg: IncomingMessage) {
+    this.logger.log(`[NOVA MSG] Instância: ${msg.instanceId} | De: ${msg.sender} | Enfileirando...`);
 
-    // [SAAS] Emite pro Navegador Frontend / App renderizar balão branco sem precisar recarregar a tela
     this.gateway.emit('new_message', {
       instanceId: msg.instanceId,
       sender: msg.sender,
@@ -115,9 +108,7 @@ export class SessionManagerService implements OnModuleInit {
     this.gateway.emit('session_status', { instanceId, status });
 
     if (qrCode) {
-      this.logger.log(
-        `[QR CODE DISPONÍVEL] Renderize o seguinte payload no Frontend para emparelhar: ${qrCode.substring(0, 30)}...`,
-      );
+      this.logger.log(`[QR CODE DISPONÍVEL] Renderize o seguinte payload no Frontend para emparelhar...`);
       this.gateway.emit('qr_code', { instanceId, qrCode });
     }
   }

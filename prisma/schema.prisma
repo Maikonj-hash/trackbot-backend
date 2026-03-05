@@ -23,14 +23,22 @@ model User {
 }
 
 model WhatsappInstance {
-  id          String   @id @default(uuid())
-  name        String
-  phone       String?  @unique
-  status      String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, QR_READY
-  flowId      String?  
-  flow        Flow?    @relation(fields: [flowId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(uuid())
+  name              String
+  phone             String?  @unique
+  status            String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, QR_READY
+  provider          String   @default("BAILEYS") // "BAILEYS" | "META_OFFICIAL"
+  
+  // Meta Official API Configs
+  metaToken         String?  // Geração no portal de dev
+  metaPhoneNumberId String?  // ID do número de telefone (Graph API)
+  metaWabaId        String?  // WhatsApp Business Account ID
+  metaVerifyToken   String?  // Token de verificação do Webhook
+  
+  flowId            String?  
+  flow              Flow?    @relation(fields: [flowId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model Flow {
