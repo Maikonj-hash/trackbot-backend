@@ -13,6 +13,7 @@ import { MediaHandler } from './flow/handlers/media.handler';
 import { SetVariableHandler } from './flow/handlers/set-variable.handler';
 import { HttpRequestHandler } from './flow/handlers/http-request.handler';
 import { CustomerIdentificationHandler } from './flow/handlers/customer-identification.handler';
+import { SwitchHandler } from './flow/handlers/switch.handler';
 import { HandlerFactory } from './flow/handlers/handler.factory';
 
 @Module({
@@ -31,6 +32,7 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     SetVariableHandler,
     HttpRequestHandler,
     CustomerIdentificationHandler,
+    SwitchHandler,
     HandlerFactory,
   ],
   exports: [FlowService],

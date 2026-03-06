@@ -28,6 +28,11 @@ export class VariableService {
         const field = parts.slice(1).join('.');
 
         try {
+            // Wave 6 - Delegação estrutural para as Subfunções
+            if (scope === 'sys') return this.resolveSystemVariable(field);
+            if (scope === 'contact') return this.resolveContactVariable(field, context.user);
+
+            // Legacy e Custom variables
             if (scope === 'user') {
                 if (field.startsWith('metadata.')) {
                     const metaField = field.replace('metadata.', '');
@@ -37,7 +42,6 @@ export class VariableService {
                 return (context.user as any)[field];
             }
 
-            // Atalho para metadados direto: {{email}} ou {{metadata.email}}
             if (scope === 'metadata' || parts.length === 1) {
                 const metaPath = scope === 'metadata' ? field : path;
                 const metadata = (context.user as any).metadata || {};
@@ -55,9 +59,37 @@ export class VariableService {
         }
     }
 
+    // Refatoração Wave 6: Clean Code Architecture
+    private resolveSystemVariable(field: string): any {
+        const now = new Date();
+        switch (field) {
+            case 'date':
+                return now.toLocaleDateString('pt-BR');
+            case 'time':
+                return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            case 'datetime':
+                return now.toLocaleString('pt-BR');
+            case 'greeting':
+                const hour = now.getHours();
+                if (hour >= 5 && hour < 12) return 'Bom dia';
+                if (hour >= 12 && hour < 18) return 'Boa tarde';
+                return 'Boa noite';
+            default:
+                return undefined;
+        }
+    }
+
+    // Refatoração Wave 6: Clean Code Architecture
+    private resolveContactVariable(field: string, user: User): any {
+        if (field === 'phone') return user.phone;
+        if (field === 'name') return user.name || '';
+        return undefined;
+    }
+
     private getDeepValue(obj: any, path: string): any {
+        if (!obj || typeof obj !== 'object') return undefined;
         return path.split('.').reduce((prev, curr) => {
-            return prev ? prev[curr] : undefined;
+            return prev && prev[curr] !== undefined ? prev[curr] : undefined;
         }, obj);
     }
 }

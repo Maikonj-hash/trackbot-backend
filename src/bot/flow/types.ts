@@ -9,6 +9,7 @@ export type FlowStepType =
   | 'SET_VARIABLE' // Operações matemáticas ou setagem literal em variaveis de contexto
   | 'HANDOVER' // Transfere pro atendimento humano e avisa no ws
   | 'CUSTOMER_IDENTIFICATION' // Captura múltipla de dados (Formulário)
+  | 'SWITCH' // Roteador múltiplo (Switch/Case) baseado em valores específicos
   | 'END'; // Encerra forçadamente o fluxo
 
 // Bloco Base Genérico
@@ -122,6 +123,17 @@ export interface CustomerIdentificationStep extends BaseStep {
   skipIfAlreadyFilled?: boolean; // Se true, o Handler pula campos que já tenham valor no user.metadata
 }
 
+// 11. Bloco Roteador (Switch / Case)
+export interface SwitchStep extends BaseStep {
+  type: 'SWITCH';
+  variable: string; // Qual variável avaliar. Ex: "user.metadata.plano"
+  branches: Array<{
+    value: string; // Qual valor aciona esta rota. Ex: "vip"
+    targetStepId: string; // ID do bloco destino
+  }>;
+  defaultStepId?: string | null; // Caminho fallback caso o valor não bata com nenhuma branch (agora permite null seguro)
+}
+
 export type AnyFlowStep =
   | TextStep
   | OptionsStep
@@ -132,6 +144,7 @@ export type AnyFlowStep =
   | MediaStep
   | SetVariableStep
   | HandoverStep
+  | SwitchStep
   | CustomerIdentificationStep;
 
 export interface FlowDefinition {
