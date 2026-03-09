@@ -145,7 +145,15 @@ export type AnyFlowStep =
   | SetVariableStep
   | HandoverStep
   | SwitchStep
-  | CustomerIdentificationStep;
+  | CustomerIdentificationStep
+  | EndStep;
+
+// 12. Bloco de Encerramento (End Flow)
+export interface EndStep extends BaseStep {
+  type: 'END';
+  resetType?: 'IMMEDIATE' | 'TIMEOUT';
+  timeoutValue?: number; // em minutos
+}
 
 export interface FlowDefinition {
   id: string;

@@ -11,6 +11,7 @@ export interface OutgoingMessageJob {
   mediaUrl?: string;
   mediaType?: string; // audio, video, image, document
   ptt?: boolean;
+  interactive?: any; // Botões ou Listas
 }
 
 @Processor('outgoing_messages', {
@@ -36,7 +37,7 @@ export class OutgoingMessageWorker extends WorkerHost {
       `📤 Enviando resposta para [${data.to}]: ${data.content.substring(0, 30)}`,
     );
 
-    const { instanceId, to, content, delayMs, mediaUrl, mediaType, ptt } =
+    const { instanceId, to, content, delayMs, mediaUrl, mediaType, ptt, interactive } =
       job.data;
 
     // Simula a demora de um ser humano para evitar ban
@@ -49,7 +50,7 @@ export class OutgoingMessageWorker extends WorkerHost {
         ? { url: mediaUrl, type: mediaType, ptt }
         : undefined;
 
-    await this.sessionManager.sendMessage(instanceId, to, content, media);
+    await this.sessionManager.sendMessage(instanceId, to, content, media, interactive);
     return { success: true };
   }
 }

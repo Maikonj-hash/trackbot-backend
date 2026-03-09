@@ -75,7 +75,7 @@ export class OptionsHandler implements IStepHandler {
           type: 'button',
           buttons: optionsKeys.map((key) => ({
             id: key,
-            text: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }),
+            text: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 20),
           })),
         };
       } else if (optionsCount <= 10) {
@@ -91,7 +91,7 @@ export class OptionsHandler implements IStepHandler {
                 title: 'Opções',
                 rows: optionsKeys.map((key) => ({
                   id: key,
-                  title: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }),
+                  title: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 24),
                 })),
               },
             ],

@@ -38,38 +38,18 @@ export class FlowService {
     if (this.flows.has(flowId)) return this.flows.get(flowId)!;
 
     try {
-      // 1. Tentar buscar no Banco de Dados (PostgreSQL via Prisma)
-      // O flowId pode ser um UUID ou o slug 'default'
       const dbFlow = await this.prisma.flow.findUnique({
         where: { id: flowId },
       });
 
       if (dbFlow && (dbFlow as any).publishedContent) {
         const json = (dbFlow as any).publishedContent as any;
-        // O publishedContent já contém a estrutura FlowDefinition diretamente
         const flowDef = json as FlowDefinition;
         this.flows.set(flowId, flowDef);
         return flowDef;
       }
 
-      // Se não houver conteúdo publicado, vamos para o fallback de arquivos (para compatibilidade com os padrões iniciais)
-      const flowPath = path.join(__dirname, '..', 'flows', `${flowId}.json`);
-      const defaultPath = path.join(__dirname, '..', 'flows', 'default.json');
-      const targetPath = fs.existsSync(flowPath) ? flowPath : defaultPath;
-
-      if (fs.existsSync(targetPath)) {
-        const fileContent = fs.readFileSync(targetPath, 'utf8');
-        try {
-          const flowDef = JSON.parse(fileContent) as FlowDefinition;
-          if (flowDef && flowDef.steps) {
-            this.flows.set(flowId, flowDef);
-            return flowDef;
-          }
-        } catch (jsonErr) {
-          this.logger.error(`Malformed JSON in file: ${targetPath}`, jsonErr);
-        }
-      }
-
+      this.logger.warn(`Flow ${flowId} not found in database or has no published content.`);
       return { id: 'error', name: 'Invalid Flow', steps: {} };
     } catch (e) {
       this.logger.error(`Critical failure loading flow for ${flowId}`, e);
@@ -105,13 +85,43 @@ export class FlowService {
         where: { id: msg.instanceId },
       });
 
-      const flowId = instance?.flowId ?? 'default';
+      // Se não houver fluxo associado, ignoramos silenciosamente (Modo Passivo/Manual)
+      if (!instance?.flowId) {
+        this.logger.log(`[PASSIVE MODE] Instance ${instance?.name || msg.instanceId} has no flow associated. Ignoring message from ${phone}.`);
+        return;
+      }
+
+      const flowId = instance.flowId;
       const flowDef = await this.fetchFlowDefinition(flowId);
 
-      const currentStepId = await this.stateService.getStep(
+      // Se o fluxo retornado for o de erro (não encontrado), paramos aqui.
+      if (flowDef.id === 'error') return;
+
+      let currentStepId = await this.stateService.getStep(
         msg.instanceId,
         phone,
       );
+
+      // Wave 11: Verificação de expiração se o usuário estiver travado num bloco END com TIMEOUT
+      if (currentStepId) {
+        const step = flowDef.steps[currentStepId];
+        if (step?.type === 'END') {
+          const metadata = (user as any).metadata || {};
+          const expiresAtStr = metadata.flow_expires_at;
+
+          if (expiresAtStr) {
+            const expiresAt = new Date(expiresAtStr);
+            if (new Date() < expiresAt) {
+              this.logger.log(`[FLOW TIMEOUT] User ${phone} is still in block timeout at END. Ignoring.`);
+              return;
+            }
+          }
+
+          // Se o tempo passou ou não há trava, limpamos para iniciar do zero abaixo
+          await this.stateService.clearStep(msg.instanceId, phone);
+          currentStepId = null;
+        }
+      }
 
       const ctx: StepHandlerContext = {
         msg,

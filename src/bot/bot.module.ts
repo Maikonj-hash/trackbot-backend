@@ -14,6 +14,7 @@ import { SetVariableHandler } from './flow/handlers/set-variable.handler';
 import { HttpRequestHandler } from './flow/handlers/http-request.handler';
 import { CustomerIdentificationHandler } from './flow/handlers/customer-identification.handler';
 import { SwitchHandler } from './flow/handlers/switch.handler';
+import { EndHandler } from './flow/handlers/end.handler';
 import { HandlerFactory } from './flow/handlers/handler.factory';
 
 @Module({
@@ -33,6 +34,7 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     HttpRequestHandler,
     CustomerIdentificationHandler,
     SwitchHandler,
+    EndHandler,
     HandlerFactory,
   ],
   exports: [FlowService],

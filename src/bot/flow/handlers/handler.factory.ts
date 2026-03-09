@@ -12,6 +12,7 @@ import { HttpRequestHandler } from './http-request.handler';
 import { CustomerIdentificationHandler } from './customer-identification.handler';
 import { AnyFlowStep } from '../types';
 import { SwitchHandler } from './switch.handler';
+import { EndHandler } from './end.handler';
 
 @Injectable()
 export class HandlerFactory {
@@ -29,6 +30,7 @@ export class HandlerFactory {
     private handoverHandler: HandoverHandler,
     private customerIdentificationHandler: CustomerIdentificationHandler,
     private switchHandler: SwitchHandler,
+    private endHandler: EndHandler,
   ) {
     this.handlers = [
       this.textHandler,
@@ -42,6 +44,7 @@ export class HandlerFactory {
       this.handoverHandler,
       this.customerIdentificationHandler,
       this.switchHandler,
+      this.endHandler,
     ];
   }
 
