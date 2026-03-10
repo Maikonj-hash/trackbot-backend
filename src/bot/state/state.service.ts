@@ -60,6 +60,15 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
     await this.redis.del(`session:${instanceId}:${userPhone}:meta`);
   }
 
+  async deleteMetadata(
+    instanceId: string,
+    userPhone: string,
+    key: string,
+  ): Promise<void> {
+    const hashKey = `session:${instanceId}:${userPhone}:meta`;
+    await this.redis.hdel(hashKey, key);
+  }
+
   async pushHistory(
     instanceId: string,
     userPhone: string,
@@ -90,5 +99,18 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
 
   async clearHistory(instanceId: string, userPhone: string): Promise<void> {
     await this.redis.del(`session:${instanceId}:${userPhone}:history`);
+  }
+
+  async clearFlowSessions(instanceId: string): Promise<void> {
+    const pattern = `session:${instanceId}:*`;
+    let cursor = '0';
+    
+    do {
+      const [newCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = newCursor;
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+    } while (cursor !== '0');
   }
 }

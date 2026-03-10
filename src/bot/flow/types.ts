@@ -10,6 +10,7 @@ export type FlowStepType =
   | 'HANDOVER'
   | 'CUSTOMER_IDENTIFICATION'
   | 'SWITCH'
+  | 'REVIEW'
   | 'END';
 
 export interface BaseStep {
@@ -120,6 +121,20 @@ export interface SwitchStep extends BaseStep {
   defaultStepId?: string | null;
 }
 
+export interface ReviewField {
+  label: string;
+  variableName: string;
+}
+
+export interface ReviewStep extends BaseStep {
+  type: 'REVIEW';
+  content: string;
+  fields: ReviewField[];
+  confirmButtonText?: string;
+  editButtonText?: string;
+  correctionStepId?: string;
+}
+
 export type AnyFlowStep =
   | TextStep
   | OptionsStep
@@ -132,6 +147,7 @@ export type AnyFlowStep =
   | HandoverStep
   | SwitchStep
   | CustomerIdentificationStep
+  | ReviewStep
   | EndStep;
 
 export interface EndStep extends BaseStep {

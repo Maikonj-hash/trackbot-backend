@@ -9,5 +9,6 @@ import { BotModule } from '../../bot/bot.module';
   imports: [PrismaModule, BotModule],
   controllers: [FlowController],
   providers: [FlowService],
+  exports: [BotModule],
 })
 export class FlowModule { }

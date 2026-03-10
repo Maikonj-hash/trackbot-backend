@@ -87,9 +87,20 @@ export class FlowService {
       data: {
         publishedContent: json.backendFlow,
       },
+      include: {
+        instances: true
+      }
     });
 
-    this.botFlowService.invalidateCache(id);
+    // Invalida cache e reseta sessões de todas as instâncias vinculadas
+    for (const instance of updated.instances) {
+      await this.botFlowService.invalidateCache(id, instance.id);
+    }
+
+    // Caso não tenha instâncias, ainda invalida o cache global
+    if (updated.instances.length === 0) {
+      await this.botFlowService.invalidateCache(id);
+    }
 
     return updated;
   }

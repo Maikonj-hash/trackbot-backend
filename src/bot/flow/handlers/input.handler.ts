@@ -38,7 +38,7 @@ export class InputHandler implements IStepHandler {
       flowDef: ctx.flowDef,
     });
 
-    const hasHistory = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
+    const hasHistory = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.userPhone);
     const footer = (hasHistory && step.allowBack) ? '\n\n_Digite *0* para voltar_' : '';
 
     await ctx.outgoingQueue.add('send', {

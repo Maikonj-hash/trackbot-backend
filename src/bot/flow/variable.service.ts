@@ -22,6 +22,10 @@ export class VariableService {
         });
     }
 
+    get(user: User, path: string, flowDef?: FlowDefinition): any {
+        return this.getValueByPath(path, { user, flowDef });
+    }
+
     private getValueByPath(path: string, context: { user: User; flowDef?: FlowDefinition }): any {
         const parts = path.split('.');
         const scope = parts[0];

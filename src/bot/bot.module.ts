@@ -15,6 +15,7 @@ import { HttpRequestHandler } from './flow/handlers/http-request.handler';
 import { CustomerIdentificationHandler } from './flow/handlers/customer-identification.handler';
 import { SwitchHandler } from './flow/handlers/switch.handler';
 import { EndHandler } from './flow/handlers/end.handler';
+import { ReviewHandler } from './flow/handlers/review.handler';
 import { HandlerFactory } from './flow/handlers/handler.factory';
 
 @Module({
@@ -34,9 +35,10 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     HttpRequestHandler,
     CustomerIdentificationHandler,
     SwitchHandler,
+    ReviewHandler,
     EndHandler,
     HandlerFactory,
   ],
-  exports: [FlowService],
+  exports: [FlowService, StateService],
 })
 export class BotModule { }

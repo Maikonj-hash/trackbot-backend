@@ -26,9 +26,14 @@ export class FlowService {
     @InjectQueue('outgoing_messages') private readonly outgoingQueue: Queue,
   ) { }
 
-  invalidateCache(flowId: string) {
+  async invalidateCache(flowId: string, instanceId?: string) {
     this.flows.delete(flowId);
     this.logger.log(`Cache invalidated for flow: ${flowId}`);
+    
+    if (instanceId) {
+      await this.stateService.clearFlowSessions(instanceId);
+      this.logger.log(`Active sessions cleared for instance: ${instanceId}`);
+    }
   }
 
   private async fetchFlowDefinition(flowId: string): Promise<FlowDefinition> {
@@ -128,6 +133,7 @@ export class FlowService {
             const ctx: StepHandlerContext = {
               msg,
               user,
+              userPhone: phone,
               step: null as any,
               flowDef,
               stateService: this.stateService,
@@ -145,6 +151,7 @@ export class FlowService {
       const ctx: StepHandlerContext = {
         msg,
         user,
+        userPhone: phone,
         step: null as any,
         flowDef,
         stateService: this.stateService,

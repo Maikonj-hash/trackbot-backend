@@ -13,7 +13,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
     async processInput(ctx: StepHandlerContext): Promise<string | null> {
         const step = ctx.step as CustomerIdentificationStep;
         const instanceId = ctx.msg.instanceId;
-        const userPhone = ctx.msg.sender;
+        const userPhone = ctx.userPhone;
         const value = ctx.msg.content.trim();
 
         const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'identification_field_idx');
@@ -31,7 +31,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
         if (!isValid) {
             await ctx.outgoingQueue.add('send', {
                 instanceId,
-                to: userPhone,
+                to: ctx.msg.sender,
                 content: `❌ Formato inválido para *${currentField.label}*. Por favor, tente novamente:`,
                 delayMs: 500,
             });
@@ -39,6 +39,15 @@ export class CustomerIdentificationHandler implements IStepHandler {
         }
 
         await this.saveFieldValue(ctx, currentField, value);
+
+        // Lógica de Edição Cirúrgica: Se estiver editando apenas UM campo, volta direto
+        const isEditOne = await ctx.stateService.getMetadata(instanceId, userPhone, 'edit_one_mode');
+        if (isEditOne === 'true') {
+            await ctx.stateService.deleteMetadata(instanceId, userPhone, 'edit_one_mode');
+            await ctx.stateService.clearMetadata(instanceId, userPhone); // Limpa index de identificação
+            this.logger.log(`[IDENTIFICATION] Edit One mode finished for ${userPhone}. Returning to flow.`);
+            return step.nextStepId ?? null; // Geralmente volta para o Review
+        }
 
         currentIndex++;
 
@@ -55,7 +64,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
     async executeStep(ctx: StepHandlerContext): Promise<string | null> {
         const step = ctx.step as CustomerIdentificationStep;
         const instanceId = ctx.msg.instanceId;
-        const userPhone = ctx.msg.sender;
+        const userPhone = ctx.userPhone;
 
         const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'identification_field_idx');
         let currentIndex = parseInt(rawIndex || '0');
@@ -88,6 +97,9 @@ export class CustomerIdentificationHandler implements IStepHandler {
             }) + '\n\n';
         }
 
+        // SEMPRE ADICIONAR O RÓTULO DA PERGUNTA ATUAL
+        content += `*${currentField.label}*`;
+
         const hasHistory = await ctx.stateService.peekHistory(instanceId, userPhone);
         if (hasHistory && step.allowBack) {
             content += '\n\n_Digite *0* para voltar_';
@@ -95,7 +107,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
 
         await ctx.outgoingQueue.add('send', {
             instanceId,
-            to: userPhone,
+            to: ctx.msg.sender,
             content,
             delayMs: 1200,
         });

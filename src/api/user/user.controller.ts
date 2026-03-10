@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Patch, Delete, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StateService } from '../../bot/state/state.service';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stateService: StateService
+  ) { }
 
   @Get()
   async getAllUsers(
@@ -67,6 +71,36 @@ export class UserController {
     return this.prisma.user.create({ data });
   }
 
+  @Delete(':id')
+  async deleteUser(@Param('id') id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Limpar Redis antes de deletar do banco
+    if (user.instanceId && user.phone) {
+      await this.stateService.clearStep(user.instanceId, user.phone);
+      await this.stateService.clearMetadata(user.instanceId, user.phone);
+      await this.stateService.clearHistory(user.instanceId, user.phone);
+    }
+
+    await this.prisma.user.delete({ where: { id } });
+    return { success: true };
+  }
+
+  @Post(':id/reset')
+  async resetFlow(@Param('id') id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.instanceId && user.phone) {
+      await this.stateService.clearStep(user.instanceId, user.phone);
+      await this.stateService.clearMetadata(user.instanceId, user.phone);
+      await this.stateService.clearHistory(user.instanceId, user.phone);
+    }
+
+    return { success: true };
+  }
+
   @Post(':id') // Suporte a PATCH via POST para compatibilidade se necessário, mas usaremos Patch formal
   async updateUserInfo(@Param('id') id: string, @Body() data: any) {
     return this.updateUser(id, data);
@@ -80,7 +114,7 @@ export class UserController {
   // Método formal de Update
   async updateUser(id: string, data: { name?: string; metadata?: any }) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new Error('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     const updateData: any = {};
     if (data.name !== undefined) updateData.name = data.name;

@@ -8,6 +8,7 @@ import { VariableService } from '../variable.service';
 export interface StepHandlerContext {
   msg: IncomingMessage;
   user: User;
+  userPhone: string;
   step: AnyFlowStep;
   flowDef: any;
   stateService: StateService;

@@ -63,7 +63,7 @@ export class OptionsHandler implements IStepHandler {
     const textOptionsList = optionsKeys
       .map((key, i) => `*${i + 1}.* ${ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef })}`);
 
-    const hasHistory = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
+    const hasHistory = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.userPhone);
     if (hasHistory && step.allowBack) {
       textOptionsList.push('*0.* ↩️ Voltar');
     }
