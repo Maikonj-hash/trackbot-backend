@@ -11,7 +11,7 @@ export class SetVariableHandler implements IStepHandler {
   }
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
-    return null; // Apenas executa silenciosamente
+    return null;
   }
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {

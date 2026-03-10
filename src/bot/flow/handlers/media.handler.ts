@@ -11,7 +11,7 @@ export class MediaHandler implements IStepHandler {
   }
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
-    return null; // O bloco de mídia, assim como texto, passa direto
+    return null;
   }
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
@@ -27,8 +27,6 @@ export class MediaHandler implements IStepHandler {
       flowDef: ctx.flowDef,
     });
 
-    // No Typebot, o envio de midia so precisa de uma URL.
-    // Iremos delegar pro Worker Outgoing a flag 'mediaData' para o provider disparar apropriadamente.
     await ctx.outgoingQueue.add('send', {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
@@ -36,7 +34,7 @@ export class MediaHandler implements IStepHandler {
       mediaUrl: resolvedUrl,
       mediaType: step.mediaType,
       ptt: step.ptt,
-      delayMs: 2500, // Midias demoram mais pra "carregar", botamos + delay
+      delayMs: 2500,
     });
 
     return step.nextStepId ?? null;

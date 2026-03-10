@@ -31,9 +31,6 @@ export class InstanceController {
       },
     });
 
-    // Dispara criação da conexão
-    // No caso da Meta, isso validará as credenciais virtualmente.
-    // No caso do Baileys, iniciará o processo de multi-device do zero.
     await this.sessionManager.startSession(instance.id);
     return instance;
   }

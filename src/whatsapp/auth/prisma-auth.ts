@@ -6,10 +6,6 @@ import {
   BufferJSON,
 } from '@whiskeysockets/baileys';
 
-/**
- * Adaptador para salvar a sessão do Baileys diretamente no PostgreSQL via Prisma
- * Evitando uso de MultiFileAuthState que perde sessão quando o container Docker reinicia
- */
 export const usePrismaAuthState = async (
   prisma: PrismaClient,
   instanceId: string,
@@ -47,7 +43,7 @@ export const usePrismaAuthState = async (
       await prisma.baileysAuth.delete({
         where: { id: `${instanceId}-${id}` },
       });
-    } catch (error) {}
+    } catch (error) { }
   };
 
   const credsData = await readData('creds');

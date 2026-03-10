@@ -28,11 +28,8 @@ export class VariableService {
         const field = parts.slice(1).join('.');
 
         try {
-            // Wave 6 - Delegação estrutural para as Subfunções
             if (scope === 'sys') return this.resolveSystemVariable(field);
             if (scope === 'contact') return this.resolveContactVariable(field, context.user);
-
-            // Legacy e Custom variables
             if (scope === 'user') {
                 if (field.startsWith('metadata.')) {
                     const metaField = field.replace('metadata.', '');
@@ -59,7 +56,6 @@ export class VariableService {
         }
     }
 
-    // Refatoração Wave 6: Clean Code Architecture
     private resolveSystemVariable(field: string): any {
         const now = new Date();
         switch (field) {
@@ -79,7 +75,6 @@ export class VariableService {
         }
     }
 
-    // Refatoração Wave 6: Clean Code Architecture
     private resolveContactVariable(field: string, user: User): any {
         if (field === 'phone') return user.phone;
         if (field === 'name') return user.name || '';

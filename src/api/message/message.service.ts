@@ -7,7 +7,7 @@ export class MessageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessionManager: SessionManagerService,
-  ) {}
+  ) { }
 
   async getHistoryByUserRange(userId: string) {
     return this.prisma.messageHistory.findMany({
@@ -30,12 +30,10 @@ export class MessageService {
 
   async sendMessage(data: {
     instanceId: string;
-    to: string; // Ex: 551199999999
+    to: string;
     content: string;
     media?: { url: string; type: string; ptt?: boolean };
   }) {
-    // Como sendMessage do SessionManager joga direto pro socket/fila
-    // e o próprio Worker interceptará e salvará no banco (ou salva direto lá)
     await this.sessionManager.sendMessage(
       data.instanceId,
       data.to,

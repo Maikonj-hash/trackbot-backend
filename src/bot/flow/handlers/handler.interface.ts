@@ -13,7 +13,7 @@ export interface StepHandlerContext {
   stateService: StateService;
   variableService: VariableService;
   outgoingQueue: Queue;
-  prisma: any; // PrismaService
+  prisma: any;
 }
 
 export interface IStepHandler {

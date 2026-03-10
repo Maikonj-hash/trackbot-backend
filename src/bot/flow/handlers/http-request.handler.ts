@@ -11,7 +11,7 @@ export class HttpRequestHandler implements IStepHandler {
   }
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
-    return null; // O bloco roda passivamente assim que é acessado
+    return null;
   }
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
@@ -20,7 +20,6 @@ export class HttpRequestHandler implements IStepHandler {
     let responseData: any = {};
 
     try {
-      // 1. Interpolar URL
       const url = ctx.variableService.resolve(step.url, {
         user: ctx.user,
         flowDef: ctx.flowDef,
@@ -28,7 +27,6 @@ export class HttpRequestHandler implements IStepHandler {
 
       this.logger.log(`[HTTP REQUEST] Disparando ${step.method} para ${url}`);
 
-      // 2. Interpolar Headers
       const rawHeaders = step.headers || {};
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -41,7 +39,6 @@ export class HttpRequestHandler implements IStepHandler {
         });
       }
 
-      // 3. Interpolar Body (se houver)
       let body: any = undefined;
       if (['POST', 'PUT', 'PATCH'].includes(step.method) && step.bodyPayload) {
         const bodyContent = typeof step.bodyPayload === 'string'
@@ -54,12 +51,10 @@ export class HttpRequestHandler implements IStepHandler {
         });
       }
 
-      // 4. Timeout (Default 10s se não especificado)
       const timeout = step.timeout || 10000;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      // 5. Disparo
       const response = await fetch(url, {
         method: step.method,
         headers: requestHeaders,
@@ -73,12 +68,10 @@ export class HttpRequestHandler implements IStepHandler {
       try {
         responseData = JSON.parse(responseText);
       } catch (err) {
-        responseData = responseText; // Fallback para texto bruto se não for JSON
+        responseData = responseText;
       }
 
       this.logger.log(`[HTTP RESPONSE] Status: ${responseStatus}`);
-
-      // 6. Persistência de Dados
       let metadataUpdates: any = {};
 
       if (step.saveStatusToVariable) {
@@ -106,7 +99,6 @@ export class HttpRequestHandler implements IStepHandler {
         });
       }
 
-      // 7. Roteamento
       if (responseStatus >= 200 && responseStatus < 300) {
         return step.successStepId || step.nextStepId || null;
       } else {

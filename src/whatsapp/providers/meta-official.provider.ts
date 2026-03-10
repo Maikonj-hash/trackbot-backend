@@ -5,25 +5,18 @@ import {
 } from '../interfaces/message-provider.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 
-/**
- * Endpoint Oficial da Cloud API da Meta para envio de mensagens
- */
 const META_GRAPH_URL = 'https://graph.facebook.com/v20.0';
 
 @Injectable()
 export class MetaOfficialProvider implements IMessageProvider {
     private readonly logger = new Logger(MetaOfficialProvider.name);
 
-    // Callbacks globais, assim como no Baileys, repassados para a fila e gateway.
-    // IMPORTANTE: Como as msgs chegam via webhook HTTP (passivo), este provider
-    // não tem um "socket" escutando, o controller que vai disparar esse callback injetado.
     public onMessageCallback?: (msg: IncomingMessage) => void;
     public onStatusCallback?: (instanceId: string, status: string, qrCode?: string) => void;
 
     constructor(private readonly prisma: PrismaService) { }
 
     async connect(instanceId: string): Promise<void> {
-        // Para a Meta API, "conectar" é apenas validar se os tokens existem. Não há conexão WebSockets persistente.
         const instance = await this.prisma.whatsappInstance.findUnique({
             where: { id: instanceId },
         });
@@ -43,7 +36,6 @@ export class MetaOfficialProvider implements IMessageProvider {
 
         this.logger.log(`[META OFFICIAL] "Conectado" virtualmente na instância ${instanceId} (Credenciais Validadas)`);
 
-        // Atualiza status no banco simulando que está online e pronto
         await this.prisma.whatsappInstance.update({
             where: { id: instanceId },
             data: { status: 'CONNECTED' }
@@ -84,7 +76,7 @@ export class MetaOfficialProvider implements IMessageProvider {
             return null;
         }
 
-        const cleanTo = to.replace(/[^0-9]/g, ''); // Cloud API prefere DDI+DDD+Numero limpo
+        const cleanTo = to.replace(/[^0-9]/g, '');
 
         const payload: any = {
             messaging_product: "whatsapp",

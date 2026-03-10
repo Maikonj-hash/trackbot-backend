@@ -5,12 +5,10 @@ import { ZodValidationPipe } from 'nestjs-zod';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Ativando validação global estrita com Zod
   app.useGlobalPipes(new ZodValidationPipe());
 
-  // Liberando CORS para o Frontend Web App ler a API
   app.enableCors({
-    origin: '*', // Em produção, altere para o domínio real (ex: https://meusaas.com)
+    origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

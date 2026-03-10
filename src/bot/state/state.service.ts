@@ -45,7 +45,7 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const hashKey = `session:${instanceId}:${userPhone}:meta`;
     await this.redis.hset(hashKey, key, value);
-    await this.redis.expire(hashKey, 86400); // 24h
+    await this.redis.expire(hashKey, 86400);
   }
 
   async getMetadata(

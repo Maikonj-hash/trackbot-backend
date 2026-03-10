@@ -18,7 +18,6 @@ export class InputHandler implements IStepHandler {
         data: { name: value },
       });
     } else if (step.saveToVariable && step.saveToVariable !== 'phone') {
-      // Salva no JSONB Metadata
       const currentMetadata = (ctx.user as any).metadata || {};
       const newMetadata = { ...currentMetadata, [step.saveToVariable]: value };
 
@@ -46,7 +45,6 @@ export class InputHandler implements IStepHandler {
       delayMs: 1500,
     });
 
-    // Input para a execução passiva e aguarda input do usuário
     return null;
   }
 }

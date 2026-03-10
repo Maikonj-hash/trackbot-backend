@@ -8,18 +8,16 @@ export class EndHandler implements IStepHandler {
   }
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
-    // Se o usuário mandar algo enquanto está no bloco END, o FlowService vai decidir se reinicia ou ignora.
-    // Mas como redundância, se chegou aqui, limpamos.
     await ctx.stateService.clearStep(ctx.msg.instanceId, ctx.user.phone);
     return null;
   }
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
-    const step = ctx.step as any; // Cast para evitar erro de tipo se o build for lento
-    
+    const step = ctx.step as any;
+
     if (step.resetType === 'TIMEOUT' && step.timeoutValue) {
       const expiresAt = new Date(Date.now() + step.timeoutValue * 60 * 1000);
-      
+
       await ctx.prisma.user.update({
         where: { id: ctx.user.id },
         data: {
@@ -29,14 +27,10 @@ export class EndHandler implements IStepHandler {
           }
         }
       });
-      
-      // No modo TIMEOUT, mantemos o usuário logado no passo END.
-      // O FlowService se encarregará de limpar quando o tempo expirar.
     } else {
-      // Modo IMMEDIATE (Padrão): Limpa imediatamente o estado do usuário.
       await ctx.stateService.clearStep(ctx.msg.instanceId, ctx.user.phone);
     }
-    
+
     return null;
   }
 }

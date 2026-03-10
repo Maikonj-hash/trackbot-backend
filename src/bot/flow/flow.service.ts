@@ -26,9 +26,6 @@ export class FlowService {
     @InjectQueue('outgoing_messages') private readonly outgoingQueue: Queue,
   ) { }
 
-  /**
-   * Limpa o cache de um fluxo específico para forçar o recarregamento na próxima mensagem.
-   */
   invalidateCache(flowId: string) {
     this.flows.delete(flowId);
     this.logger.log(`Cache invalidated for flow: ${flowId}`);
@@ -85,7 +82,6 @@ export class FlowService {
         where: { id: msg.instanceId },
       });
 
-      // Se não houver fluxo associado, ignoramos silenciosamente (Modo Passivo/Manual)
       if (!instance?.flowId) {
         this.logger.log(`[PASSIVE MODE] Instance ${instance?.name || msg.instanceId} has no flow associated. Ignoring message from ${phone}.`);
         return;
@@ -94,7 +90,6 @@ export class FlowService {
       const flowId = instance.flowId;
       const flowDef = await this.fetchFlowDefinition(flowId);
 
-      // Se o fluxo retornado for o de erro (não encontrado), paramos aqui.
       if (flowDef.id === 'error') return;
 
       let currentStepId = await this.stateService.getStep(
@@ -102,7 +97,6 @@ export class FlowService {
         phone,
       );
 
-      // Wave 11: Verificação de expiração se o usuário estiver travado num bloco END com TIMEOUT
       if (currentStepId) {
         const step = flowDef.steps[currentStepId];
         if (step?.type === 'END') {
@@ -117,7 +111,6 @@ export class FlowService {
             }
           }
 
-          // Se o tempo passou ou não há trava, limpamos para iniciar do zero abaixo
           await this.stateService.clearStep(msg.instanceId, phone);
           currentStepId = null;
         }
@@ -135,8 +128,6 @@ export class FlowService {
       };
 
       if (!currentStepId) {
-        // Se o fluxo tem um firstStepId definido pelo Studio, usa ele.
-        // Caso contrário, usa os slugs legados.
         const startStepId = flowDef.firstStepId || (user.name ? 'MENU_PRINCIPAL' : 'INITIAL');
         await this.executeStepChain(startStepId, ctx);
         return;
@@ -171,15 +162,8 @@ export class FlowService {
         `Critical Error during processMessage for ${phone}:`,
         error,
       );
-      // Aqui poderíamos engatilhar alguma auto-recuperação ou alertar sistemas observáveis do erro,
-      // mas evitamos que a Worker trave inteiramente o fluxo de processamento do app Node.
     }
   }
-
-  /**
-   * Executa os blocos recursivamente ou em sequência até bater num bloco
-   * "Passivo" (que aguarda o input do humano como INPUT/OPTIONS) ou num END.
-   */
   private async executeStepChain(startStepId: string, ctx: StepHandlerContext) {
     let currentStepId: string | null = startStepId;
     let stepsCount = 0;

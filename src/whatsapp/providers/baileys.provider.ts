@@ -41,13 +41,10 @@ export class BaileysProvider implements IMessageProvider {
   }
 
   async connect(instanceId: string): Promise<void> {
-    // [BLINDAGEM] Previnindo Duplicação: Se já existe um socket, não precisamos travar o fluxo, 
-    // mas o ideal é que o Controller gerencie o stop/start.
     if (this.sockets.has(instanceId)) {
       this.logger.log(`Refazendo conexão para ${instanceId} para renovação de QR...`);
     }
 
-    // Salvamento na pasta temporária do projeto
     const sessionPath = path.join(process.cwd(), '.sessions', instanceId);
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -149,7 +146,6 @@ export class BaileysProvider implements IMessageProvider {
       await this.updateInstanceDbStatus(instanceId, 'DISCONNECTED');
     }
 
-    // [BLINDAGEM] Failsafe: Garantindo que as chaves/cache sejam destruídas do disco caso o Baileys deixe lixo.
     const sessionPath = path.join(process.cwd(), '.sessions', instanceId);
     if (fs.existsSync(sessionPath)) {
       fs.rmSync(sessionPath, { recursive: true, force: true });
@@ -183,7 +179,6 @@ export class BaileysProvider implements IMessageProvider {
 
     const jid = JidHelper.formatJid(to);
 
-    // 1. Envio de Mídia
     if (media) {
       if (media.type === 'audio') {
         return sock.sendMessage(jid, {
@@ -214,7 +209,6 @@ export class BaileysProvider implements IMessageProvider {
       }
     }
 
-    // 2. Envio Interativo (Botões ou Listas)
     if (interactive) {
       if (interactive.type === 'button' && interactive.buttons) {
         return sock.sendMessage(jid, {
@@ -225,6 +219,7 @@ export class BaileysProvider implements IMessageProvider {
             type: 1,
           })),
           headerType: 1,
+          viewOnce: true
         } as any);
       }
 
@@ -246,7 +241,6 @@ export class BaileysProvider implements IMessageProvider {
       }
     }
 
-    // 3. Texto Plano (Default)
     try {
       return await sock.sendMessage(jid, { text: content });
     } catch (error) {

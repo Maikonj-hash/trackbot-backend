@@ -89,7 +89,6 @@ export class FlowService {
       },
     });
 
-    // Notar o Bot para limpar o cache desse fluxo
     this.botFlowService.invalidateCache(id);
 
     return updated;

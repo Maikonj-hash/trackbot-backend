@@ -7,15 +7,15 @@ export interface OutgoingMessageJob {
   instanceId: string;
   to: string;
   content: string;
-  delayMs?: number; // Para simular tempo de digitação humana
+  delayMs?: number;
   mediaUrl?: string;
-  mediaType?: string; // audio, video, image, document
+  mediaType?: string;
   ptt?: boolean;
-  interactive?: any; // Botões ou Listas
+  interactive?: any;
 }
 
 @Processor('outgoing_messages', {
-  concurrency: 5, // Processa estritamente até 5 envios paralelos no máximo para não dar flag no zap
+  concurrency: 5,
   limiter: {
     max: 10,
     duration: 1000,
@@ -40,7 +40,6 @@ export class OutgoingMessageWorker extends WorkerHost {
     const { instanceId, to, content, delayMs, mediaUrl, mediaType, ptt, interactive } =
       job.data;
 
-    // Simula a demora de um ser humano para evitar ban
     if (delayMs) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }

@@ -8,21 +8,17 @@ export class HandoverHandler implements IStepHandler {
     return type === 'HANDOVER';
   }
 
-  // Bloco Passivo (Mas que trava o fluxo conversacional permanentemente até um agente humano intervir)
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
-    // Nós bloqueamos a execução natural pq a inteção é ignorar os disparos
-    // enquanto o hand_over = true, até a dashboard retornar pra "false"
     return null;
   }
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as HandoverStep;
 
-    // Atualiza o Prisma informando que aquele número requer um humano
     await ctx.prisma.user.update({
       where: { id: ctx.user.id },
       data: {
-        status: 'ATTENDANT', // Criar status logic mais tarde
+        status: 'ATTENDANT',
       },
     });
 

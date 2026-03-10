@@ -34,7 +34,6 @@ export class SessionManagerService implements OnModuleInit {
     try {
       const provider = await this.providerFactory.getProvider(instanceId);
 
-      // Amarra os eventos pra esta instância específica neste provedor instanciado
       provider.onMessage(this.handleIncomingMessage.bind(this));
       provider.onConnectionStatus(this.handleConnectionStatus.bind(this));
 
@@ -70,10 +69,8 @@ export class SessionManagerService implements OnModuleInit {
   ): Promise<any> {
     const provider = await this.providerFactory.getProvider(instanceId);
 
-    // Passa o interactive se existir
     const result = await provider.sendMessage(instanceId, to, content, media, interactive);
 
-    // Emite para o Painel Web
     this.gateway.emit('new_message', {
       instanceId,
       sender: to,

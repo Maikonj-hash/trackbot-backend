@@ -12,8 +12,6 @@ export class TextHandler implements IStepHandler {
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as TextStep;
-    // O Bloco TEXT geralmente não aguarda input específico de validação
-    // Qualquer coisa que o usuário falar irá jogar pro próximo passo
     return step.nextStepId ?? null;
   }
 
@@ -29,10 +27,8 @@ export class TextHandler implements IStepHandler {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
       content,
-      delayMs: 1500, // Delay padrão global
+      delayMs: 1500,
     });
-
-    // Se tiver nextStepId, já encadeia silenciosamente pro próximo bloco
     return step.nextStepId ?? null;
   }
 }

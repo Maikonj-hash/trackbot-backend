@@ -10,7 +10,6 @@ export class ConditionHandler implements IStepHandler {
     return type === 'CONDITION';
   }
 
-  // Conditions não aguardam usuário. Eles resolvem e pulam sozinhos.
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
     return null;
   }
@@ -18,8 +17,6 @@ export class ConditionHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as ConditionStep;
 
-    // Resolve a variável usando o VariableService (como se fosse um placeholder em texto)
-    // Mas aqui extraímos o valor real. O resolve retorna string, o que é seguro para comparação.
     const leftValue = ctx.variableService.resolve(`{{${step.variable}}}`, {
       user: ctx.user,
       flowDef: ctx.flowDef,
@@ -28,8 +25,6 @@ export class ConditionHandler implements IStepHandler {
     const rightValue = step.value;
     let isTrue = false;
 
-    // Se o VariableService não encontrou a variável, ele retorna o próprio placeholder {{...}}
-    // Marcamos como vazio/null para a lógica de comparação abaixo
     const finalLeftValue = leftValue === `{{${step.variable}}}` ? '' : leftValue;
 
     switch (step.operator) {
