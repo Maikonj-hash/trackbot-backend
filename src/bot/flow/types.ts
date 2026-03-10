@@ -16,6 +16,7 @@ export interface BaseStep {
   id: string;
   type: FlowStepType;
   nextStepId?: string | null;
+  allowBack?: boolean;
 }
 
 export interface TextStep extends BaseStep {

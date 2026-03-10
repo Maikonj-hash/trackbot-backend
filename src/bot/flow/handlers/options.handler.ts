@@ -60,25 +60,47 @@ export class OptionsHandler implements IStepHandler {
     const optionsKeys = Object.keys(step.options || {});
     const optionsCount = optionsKeys.length;
 
-    const textOptions = optionsKeys
-      .map((key, i) => `*${i + 1}.* ${ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef })}`)
-      .join('\n');
+    const textOptionsList = optionsKeys
+      .map((key, i) => `*${i + 1}.* ${ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef })}`);
+
+    const hasHistory = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
+    if (hasHistory && step.allowBack) {
+      textOptionsList.push('*0.* ↩️ Voltar');
+    }
+
+    const textOptions = textOptionsList.join('\n');
 
     let interactive: any = undefined;
     let finalContent = resolvedContent;
 
-    const shouldSendNative = step.useNativeButtons && optionsCount > 0 && optionsCount <= 10;
+    const totalOptions = (hasHistory && step.allowBack) ? optionsCount + 1 : optionsCount;
+    const shouldSendNative = step.useNativeButtons && totalOptions > 0 && totalOptions <= 10;
 
     if (shouldSendNative) {
-      if (optionsCount <= 3) {
+      if (totalOptions <= 3) {
+        const buttons = optionsKeys.map((key) => ({
+          id: key,
+          text: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 20),
+        }));
+
+        if (hasHistory && step.allowBack) {
+          buttons.push({ id: '0', text: '↩️ Voltar' });
+        }
+
         interactive = {
           type: 'button',
-          buttons: optionsKeys.map((key) => ({
-            id: key,
-            text: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 20),
-          })),
+          buttons,
         };
       } else {
+        const rows = optionsKeys.map((key) => ({
+          id: key,
+          title: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 24),
+        }));
+
+        if (hasHistory && step.allowBack) {
+          rows.push({ id: '0', title: '↩️ Voltar' });
+        }
+
         interactive = {
           type: 'list',
           list: {
@@ -88,10 +110,7 @@ export class OptionsHandler implements IStepHandler {
             sections: [
               {
                 title: 'Escolha uma opção',
-                rows: optionsKeys.map((key) => ({
-                  id: key,
-                  title: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 24),
-                })),
+                rows,
               },
             ],
           },

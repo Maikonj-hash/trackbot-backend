@@ -88,7 +88,10 @@ export class CustomerIdentificationHandler implements IStepHandler {
             }) + '\n\n';
         }
 
-        content += `👉 *${currentField.label}*`;
+        const hasHistory = await ctx.stateService.peekHistory(instanceId, userPhone);
+        if (hasHistory && step.allowBack) {
+            content += '\n\n_Digite *0* para voltar_';
+        }
 
         await ctx.outgoingQueue.add('send', {
             instanceId,

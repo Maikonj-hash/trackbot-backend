@@ -59,4 +59,36 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
   async clearMetadata(instanceId: string, userPhone: string): Promise<void> {
     await this.redis.del(`session:${instanceId}:${userPhone}:meta`);
   }
+
+  async pushHistory(
+    instanceId: string,
+    userPhone: string,
+    stepId: string,
+  ): Promise<void> {
+    const key = `session:${instanceId}:${userPhone}:history`;
+    await this.redis.lpush(key, stepId);
+    await this.redis.ltrim(key, 0, 9); // Manter apenas as últimas 10 interações
+    await this.redis.expire(key, 86400);
+  }
+
+  async popHistory(
+    instanceId: string,
+    userPhone: string,
+  ): Promise<string | null> {
+    const key = `session:${instanceId}:${userPhone}:history`;
+    return this.redis.lpop(key);
+  }
+
+  async peekHistory(
+    instanceId: string,
+    userPhone: string,
+  ): Promise<string | null> {
+    const key = `session:${instanceId}:${userPhone}:history`;
+    const steps = await this.redis.lrange(key, 0, 0);
+    return steps.length > 0 ? steps[0] : null;
+  }
+
+  async clearHistory(instanceId: string, userPhone: string): Promise<void> {
+    await this.redis.del(`session:${instanceId}:${userPhone}:history`);
+  }
 }

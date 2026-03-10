@@ -116,6 +116,32 @@ export class FlowService {
         }
       }
 
+      // --- LOGICA DE VOLTAR GLOBAL ---
+      const normalizedInput = msg.content.trim().toLowerCase();
+      if (normalizedInput === '0' || normalizedInput === 'voltar') {
+        const currentStep = currentStepId ? flowDef.steps[currentStepId] : null;
+
+        if (currentStep?.allowBack) {
+          const previousStepId = await this.stateService.popHistory(msg.instanceId, phone);
+          if (previousStepId) {
+            this.logger.log(`[BACK] User ${phone} requested to go back to ${previousStepId}`);
+            const ctx: StepHandlerContext = {
+              msg,
+              user,
+              step: null as any,
+              flowDef,
+              stateService: this.stateService,
+              variableService: this.variableService,
+              outgoingQueue: this.outgoingQueue,
+              prisma: this.prisma,
+            };
+            await this.executeStepChain(previousStepId, ctx);
+            return;
+          }
+        }
+      }
+      // -------------------------------
+
       const ctx: StepHandlerContext = {
         msg,
         user,
@@ -183,6 +209,20 @@ export class FlowService {
         }
 
         ctx.step = step;
+
+        // Registrar no histórico se for um passo que aguarda input (OPTIONS ou INPUT)
+        if (step.type === 'OPTIONS' || step.type === 'INPUT' || step.type === 'IDENTIFICATION') {
+          // Não salvar o mesmo passo se já for o topo (evitar loops de histórico ao errar input)
+          const lastStep = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
+          if (lastStep !== currentStepId) {
+            await ctx.stateService.pushHistory(
+              ctx.msg.instanceId,
+              ctx.user.phone,
+              currentStepId,
+            );
+          }
+        }
+
         await ctx.stateService.setStep(
           ctx.msg.instanceId,
           ctx.user.phone,
