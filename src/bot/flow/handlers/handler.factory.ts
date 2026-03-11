@@ -14,6 +14,7 @@ import { AnyFlowStep } from '../types';
 import { SwitchHandler } from './switch.handler';
 import { EndHandler } from './end.handler';
 import { ReviewHandler } from './review.handler';
+import { JumpHandler } from './jump.handler';
 
 @Injectable()
 export class HandlerFactory {
@@ -32,6 +33,7 @@ export class HandlerFactory {
     private customerIdentificationHandler: CustomerIdentificationHandler,
     private switchHandler: SwitchHandler,
     private reviewHandler: ReviewHandler,
+    private jumpHandler: JumpHandler,
     private endHandler: EndHandler,
   ) {
     this.handlers = [
@@ -47,6 +49,7 @@ export class HandlerFactory {
       this.customerIdentificationHandler,
       this.switchHandler,
       this.reviewHandler,
+      this.jumpHandler,
       this.endHandler,
     ];
   }

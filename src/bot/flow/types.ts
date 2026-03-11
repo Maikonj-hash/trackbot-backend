@@ -11,6 +11,7 @@ export type FlowStepType =
   | 'CUSTOMER_IDENTIFICATION'
   | 'SWITCH'
   | 'REVIEW'
+  | 'JUMP'
   | 'END';
 
 export interface BaseStep {
@@ -133,6 +134,7 @@ export interface ReviewStep extends BaseStep {
   confirmButtonText?: string;
   editButtonText?: string;
   correctionStepId?: string;
+  skipIfAlreadyFilled?: boolean;
 }
 
 export type AnyFlowStep =
@@ -148,7 +150,13 @@ export type AnyFlowStep =
   | SwitchStep
   | CustomerIdentificationStep
   | ReviewStep
+  | JumpStep
   | EndStep;
+
+export interface JumpStep extends BaseStep {
+  type: 'JUMP';
+  targetStepId: string;
+}
 
 export interface EndStep extends BaseStep {
   type: 'END';

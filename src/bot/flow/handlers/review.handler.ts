@@ -18,6 +18,25 @@ export class ReviewHandler implements IStepHandler {
         // Limpa subestado de edição se entrar no step normalmente
         await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
 
+        // Lógica de Salto Inteligente (Padronizada)
+        if (step.skipIfAlreadyFilled) {
+            const fields = step.fields || [];
+            let allFilled = true;
+            for (const field of fields) {
+                const varName = field.variableName?.toLowerCase();
+                const value = ctx.variableService.get(ctx.user, varName);
+                if (!value || value === '_Não informado_') {
+                    allFilled = false;
+                    break;
+                }
+            }
+
+            if (allFilled) {
+                this.logger.log(`[REVIEW] Skipping step ${step.id} for user ${userPhone} because all fields are filled.`);
+                return step.nextStepId ?? null;
+            }
+        }
+
         let summary = ctx.variableService.resolve(step.content || "📋 *Confirme seus dados:*", {
             user: ctx.user,
             flowDef: ctx.flowDef,

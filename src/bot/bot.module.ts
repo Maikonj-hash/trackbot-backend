@@ -16,6 +16,7 @@ import { CustomerIdentificationHandler } from './flow/handlers/customer-identifi
 import { SwitchHandler } from './flow/handlers/switch.handler';
 import { EndHandler } from './flow/handlers/end.handler';
 import { ReviewHandler } from './flow/handlers/review.handler';
+import { JumpHandler } from './flow/handlers/jump.handler';
 import { HandlerFactory } from './flow/handlers/handler.factory';
 
 @Module({
@@ -36,6 +37,7 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     CustomerIdentificationHandler,
     SwitchHandler,
     ReviewHandler,
+    JumpHandler,
     EndHandler,
     HandlerFactory,
   ],
