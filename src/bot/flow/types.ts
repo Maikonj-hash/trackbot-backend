@@ -43,6 +43,9 @@ export interface InputStep extends BaseStep {
   type: 'INPUT';
   content: string;
   saveToVariable: string;
+  expectedType?: 'TEXT' | 'CEP' | 'LICENSE_PLATE' | 'DATE' | 'TIME' | 'EMAIL' | 'PHONE' | 'CPF_CNPJ' | 'NUMBER';
+  errorMessage?: string;
+  maxRetries?: number;
 }
 
 export interface ConditionStep extends BaseStep {
