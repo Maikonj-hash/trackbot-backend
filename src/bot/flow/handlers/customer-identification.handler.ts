@@ -40,13 +40,12 @@ export class CustomerIdentificationHandler implements IStepHandler {
 
         await this.saveFieldValue(ctx, currentField, value);
 
-        // Lógica de Edição Cirúrgica: Se estiver editando apenas UM campo, volta direto
         const isEditOne = await ctx.stateService.getMetadata(instanceId, userPhone, 'edit_one_mode');
         if (isEditOne === 'true') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'edit_one_mode');
-            await ctx.stateService.clearMetadata(instanceId, userPhone); // Limpa index de identificação
+            await ctx.stateService.clearMetadata(instanceId, userPhone);
             this.logger.log(`[IDENTIFICATION] Edit One mode finished for ${userPhone}. Returning to flow.`);
-            return step.nextStepId ?? null; // Geralmente volta para o Review
+            return step.nextStepId ?? null;
         }
 
         currentIndex++;
@@ -97,7 +96,6 @@ export class CustomerIdentificationHandler implements IStepHandler {
             }) + '\n\n';
         }
 
-        // SEMPRE ADICIONAR O RÓTULO DA PERGUNTA ATUAL
         content += `*${currentField.label}*`;
 
         const hasHistory = await ctx.stateService.peekHistory(instanceId, userPhone);

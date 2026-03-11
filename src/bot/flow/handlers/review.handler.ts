@@ -63,7 +63,7 @@ export class ReviewHandler implements IStepHandler {
 
         if (input === '2') {
             await ctx.stateService.setMetadata(instanceId, userPhone, 'review_mode', 'SELECT_FIELD');
-            
+
             let fieldList = "❓ *Qual informação deseja corrigir?*\n\n";
             step.fields.forEach((f, i) => {
                 fieldList += `${i + 1}. ${f.label}\n`;
@@ -108,20 +108,17 @@ export class ReviewHandler implements IStepHandler {
         const selectedField = step.fields[index];
         const varName = selectedField.variableName.toLowerCase();
 
-        // MÁGICA: Limpa a variável do usuário e ATUALIZA o contexto em memória
         await this.clearVariable(ctx, varName);
 
-        // Lógica "Sniper": Se o destino for um bloco de identificação, pula direto para o campo certo
         if (step.correctionStepId) {
             const targetStep = ctx.flowDef.steps[step.correctionStepId];
             if (targetStep?.type === 'CUSTOMER_IDENTIFICATION') {
                 const targetFields = (targetStep as any).fields || [];
                 const fieldIndex = targetFields.findIndex((f: any) => f.saveToVariable.toLowerCase() === varName);
-                
+
                 if (fieldIndex !== -1) {
                     this.logger.log(`[REVIEW] Sniper mode: Redirecionando para campo ${fieldIndex} no bloco ${step.correctionStepId}`);
                     await ctx.stateService.setMetadata(instanceId, userPhone, 'identification_field_idx', fieldIndex.toString());
-                    // ATIVA A FLAG DE EDIÇÃO ÚNICA
                     await ctx.stateService.setMetadata(instanceId, userPhone, 'edit_one_mode', 'true');
                 } else {
                     this.logger.warn(`[REVIEW] Sniper mode: Campo ${varName} não encontrado no bloco ${step.correctionStepId}. Iniciando do início.`);
@@ -129,7 +126,6 @@ export class ReviewHandler implements IStepHandler {
             }
         }
 
-        // Feedback
         await ctx.outgoingQueue.add('send', {
             instanceId,
             to: ctx.msg.sender,
@@ -139,7 +135,6 @@ export class ReviewHandler implements IStepHandler {
 
         await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
 
-        // Redireciona para o bloco de correção (origem da identificação)
         return step.correctionStepId ?? step.id;
     }
 

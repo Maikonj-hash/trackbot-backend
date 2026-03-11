@@ -29,7 +29,7 @@ export class FlowService {
   async invalidateCache(flowId: string, instanceId?: string) {
     this.flows.delete(flowId);
     this.logger.log(`Cache invalidated for flow: ${flowId}`);
-    
+
     if (instanceId) {
       await this.stateService.clearFlowSessions(instanceId);
       this.logger.log(`Active sessions cleared for instance: ${instanceId}`);
@@ -121,7 +121,6 @@ export class FlowService {
         }
       }
 
-      // --- LOGICA DE VOLTAR GLOBAL ---
       const normalizedInput = msg.content.trim().toLowerCase();
       if (normalizedInput === '0' || normalizedInput === 'voltar') {
         const currentStep = currentStepId ? flowDef.steps[currentStepId] : null;
@@ -146,7 +145,6 @@ export class FlowService {
           }
         }
       }
-      // -------------------------------
 
       const ctx: StepHandlerContext = {
         msg,
@@ -217,9 +215,7 @@ export class FlowService {
 
         ctx.step = step;
 
-        // Registrar no histórico se for um passo que aguarda input (OPTIONS ou INPUT)
         if (step.type === 'OPTIONS' || step.type === 'INPUT' || step.type === 'IDENTIFICATION') {
-          // Não salvar o mesmo passo se já for o topo (evitar loops de histórico ao errar input)
           const lastStep = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
           if (lastStep !== currentStepId) {
             await ctx.stateService.pushHistory(
