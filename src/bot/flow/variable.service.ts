@@ -74,13 +74,34 @@ export class VariableService {
                 if (hour >= 5 && hour < 12) return 'Bom dia';
                 if (hour >= 12 && hour < 18) return 'Boa tarde';
                 return 'Boa noite';
+            case 'day_name':
+                const weekday = now.toLocaleDateString('pt-BR', { weekday: 'long' });
+                return weekday.charAt(0).toUpperCase() + weekday.slice(1); // Ex: Segunda-feira
+            case 'month_name':
+                const month = now.toLocaleDateString('pt-BR', { month: 'long' });
+                return month.charAt(0).toUpperCase() + month.slice(1); // Ex: Março
+            case 'year':
+                return now.getFullYear().toString();
+            case 'protocol':
+                // Gera número de protocolo único: YYYYMMDD-HHMMSS-XXXX
+                const pad = (n: number) => n.toString().padStart(2, '0');
+                const pDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+                const pTime = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+                const random = Math.floor(1000 + Math.random() * 9000);
+                return `${pDate}-${pTime}-${random}`;
             default:
                 return undefined;
         }
     }
 
     private resolveContactVariable(field: string, user: User): any {
-        if (field === 'phone') return user.phone;
+        if (field === 'phone') {
+            // Se o telefone foi mascarado pelo WhatsApp (Anúncio Click-to-Wa) não exiba a Hash Feia @lid
+            if (user.phone && user.phone.includes('@lid')) {
+                return 'Número Oculto (Privacidade Meta)';
+            }
+            return user.phone;
+        }
         if (field === 'name') return user.name || '';
         return undefined;
     }

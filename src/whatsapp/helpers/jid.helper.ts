@@ -8,6 +8,9 @@ export class JidHelper {
       if (clean.endsWith('@c.us')) {
         return clean.replace('@c.us', '@s.whatsapp.net');
       }
+      if (clean.endsWith('@lid')) {
+        return clean;
+      }
       return clean;
     }
     if (clean.includes('-')) {

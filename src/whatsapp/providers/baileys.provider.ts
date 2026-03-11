@@ -107,7 +107,17 @@ export class BaileysProvider implements IMessageProvider {
           if (!msg.message || msg.key.remoteJid === 'status@broadcast')
             continue;
 
-          const sender = msg.key.remoteJid || '';
+          let sender = msg.key.remoteJid || '';
+
+          // Tenta extrair o participant real caso o ID seja mascarado por Ads (@lid) ou IDs longos (>=14)
+          const participant = msg.key.participant || (msg as any).participant || msg.message?.extendedTextMessage?.contextInfo?.participant;
+          
+          if (participant && (sender.includes('@s.whatsapp.net') || sender.includes('@lid'))) {
+             const phonePart = sender.split('@')[0];
+             if (phonePart.length >= 14 || sender.includes('@lid')) {
+                 sender = participant;
+             }
+          }
           const content =
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text ||

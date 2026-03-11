@@ -61,7 +61,15 @@ export class FlowService {
 
   async processMessage(msg: IncomingMessage) {
     if (!msg.content) return;
-    const phone = msg.sender.split('@')[0];
+    
+    // Se for LID, precisamos preservar o domínio inteiro no "phone" para saber como responder
+    // Caso contrário, tiramos o domínio e gravamos só os números (Padrão s.whatsapp.net).
+    let phone: string;
+    if (msg.sender.includes('@lid')) {
+        phone = msg.sender;
+    } else {
+        phone = msg.sender.split('@')[0];
+    }
 
     try {
       let user = await this.prisma.user.findUnique({ where: { phone } });

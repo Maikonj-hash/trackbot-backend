@@ -88,9 +88,16 @@ export class WhatsappMetaController {
                     for (const change of changes) {
                         if (change.value && change.value.messages && Array.isArray(change.value.messages)) {
                             const messages = change.value.messages;
+                            const contacts = change.value.contacts || [];
 
                             for (const msg of messages) {
-                                const senderPhone = msg.from;
+                                // Extract the real phone number from Meta contacts array mapping
+                                let senderPhone = msg.from;
+                                const contactData = contacts.find((c: any) => c.wa_id === msg.from);
+                                if (contactData && contactData.wa_id) {
+                                    senderPhone = contactData.wa_id;
+                                }
+
                                 const timestamp = new Date(parseInt(msg.timestamp) * 1000);
 
                                 let textContent = '';
