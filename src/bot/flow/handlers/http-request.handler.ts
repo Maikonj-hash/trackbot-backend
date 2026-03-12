@@ -49,6 +49,10 @@ export class HttpRequestHandler implements IStepHandler {
           user: ctx.user,
           flowDef: ctx.flowDef,
         });
+
+        // NOTA: Se o bodyContent for uma string JSON (como o sys.payload), 
+        // o variableService.resolve vai retornar o JSON stringificado.
+        // O fetch enviará isso corretamente como o corpo da requisição.
       }
 
       const timeout = step.timeout || 10000;

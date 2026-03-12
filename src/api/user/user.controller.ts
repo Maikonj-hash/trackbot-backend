@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Body, Param, Query, Patch, Delete, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StateService } from '../../bot/state/state.service';
+import { TicketService } from '../../bot/flow/ticket.service';
 
 @Controller('users')
 export class UserController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly stateService: StateService
+    private readonly stateService: StateService,
+    private readonly ticketService: TicketService
   ) { }
 
   @Get()
@@ -64,6 +66,11 @@ export class UserController {
   @Get(':id')
   async getUser(@Param('id') id: string) {
     return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  @Get(':id/tickets')
+  async getUserTickets(@Param('id') id: string) {
+    return this.ticketService.getByUser(id);
   }
 
   @Post()

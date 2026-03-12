@@ -24,6 +24,7 @@ model User {
   // Rastreabilidade
   instanceId String?
   instance   WhatsappInstance? @relation(fields: [instanceId], references: [id])
+  tickets    Ticket[]
 }
 
 model WhatsappInstance {
@@ -82,6 +83,20 @@ model MessageHistory {
   
   instanceId String?
   instance   WhatsappInstance? @relation(fields: [instanceId], references: [id])
+  
+  createdAt DateTime @default(now())
+}
+
+model Ticket {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  flowId    String?
+  flowName  String?
+  protocol  String?
+  
+  content   Json     // Snapshot completo do sys.payload (customer + metadata + ticket info)
   
   createdAt DateTime @default(now())
 }

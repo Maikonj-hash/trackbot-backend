@@ -32,7 +32,7 @@ export class VariableService {
         const field = parts.slice(1).join('.');
 
         try {
-            if (scope === 'sys') return this.resolveSystemVariable(field);
+            if (scope === 'sys') return this.resolveSystemVariable(field, context);
             if (scope === 'contact') return this.resolveContactVariable(field, context.user);
             if (scope === 'user') {
                 if (field.startsWith('metadata.')) {
@@ -60,7 +60,7 @@ export class VariableService {
         }
     }
 
-    private resolveSystemVariable(field: string): any {
+    private resolveSystemVariable(field: string, context: { user: User; flowDef?: FlowDefinition }): any {
         const now = new Date();
         switch (field) {
             case 'date':
@@ -76,10 +76,10 @@ export class VariableService {
                 return 'Boa noite';
             case 'day_name':
                 const weekday = now.toLocaleDateString('pt-BR', { weekday: 'long' });
-                return weekday.charAt(0).toUpperCase() + weekday.slice(1); // Ex: Segunda-feira
+                return weekday.charAt(0).toUpperCase() + weekday.slice(1);
             case 'month_name':
                 const month = now.toLocaleDateString('pt-BR', { month: 'long' });
-                return month.charAt(0).toUpperCase() + month.slice(1); // Ex: Março
+                return month.charAt(0).toUpperCase() + month.slice(1);
             case 'year':
                 return now.getFullYear().toString();
             case 'protocol':
@@ -89,6 +89,23 @@ export class VariableService {
                 const pTime = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
                 const random = Math.floor(1000 + Math.random() * 9000);
                 return `${pDate}-${pTime}-${random}`;
+            case 'payload':
+                // Serializa todo o contexto do ticket para JSON
+                const payload = {
+                    ticket: {
+                        protocol: this.resolveSystemVariable('protocol', context),
+                        timestamp: now.toISOString(),
+                        flowId: context.flowDef?.id || 'unknown',
+                        flowName: context.flowDef?.name || 'unknown',
+                    },
+                    customer: {
+                        id: context.user.id,
+                        name: context.user.name,
+                        phone: context.user.phone,
+                        metadata: (context.user as any).metadata || {}
+                    }
+                };
+                return JSON.stringify(payload);
             default:
                 return undefined;
         }
@@ -96,7 +113,6 @@ export class VariableService {
 
     private resolveContactVariable(field: string, user: User): any {
         if (field === 'phone') {
-            // Se o telefone foi mascarado pelo WhatsApp (Anúncio Click-to-Wa) não exiba a Hash Feia @lid
             if (user.phone && user.phone.includes('@lid')) {
                 return 'Número Oculto (Privacidade Meta)';
             }

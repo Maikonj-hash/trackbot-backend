@@ -19,6 +19,7 @@ import { EndHandler } from './flow/handlers/end.handler';
 import { ReviewHandler } from './flow/handlers/review.handler';
 import { JumpHandler } from './flow/handlers/jump.handler';
 import { HandlerFactory } from './flow/handlers/handler.factory';
+import { TicketService } from './flow/ticket.service';
 
 @Module({
   imports: [BullModule.registerQueue({ name: 'outgoing_messages' })],
@@ -26,6 +27,7 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     StateService,
     FlowService,
     VariableService,
+    TicketService,
     FieldValidatorService,
     TextHandler,
     InputHandler,
@@ -43,6 +45,6 @@ import { HandlerFactory } from './flow/handlers/handler.factory';
     EndHandler,
     HandlerFactory,
   ],
-  exports: [FlowService, StateService],
+  exports: [FlowService, StateService, TicketService],
 })
 export class BotModule { }
