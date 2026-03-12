@@ -37,6 +37,7 @@ export interface OptionsStep extends BaseStep {
   listTitle?: string;
   listFooter?: string;
   fallbackStepId?: string;
+  dynamicOptionsVariable?: string;
 }
 
 export interface InputStep extends BaseStep {

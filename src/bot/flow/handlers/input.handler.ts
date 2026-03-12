@@ -64,8 +64,9 @@ export class InputHandler implements IStepHandler {
         data: { name: valueToSave },
       });
     } else if (step.saveToVariable && step.saveToVariable !== 'phone') {
+      const varName = step.saveToVariable.toLowerCase();
       const currentMetadata = (ctx.user as any).metadata || {};
-      const newMetadata = { ...currentMetadata, [step.saveToVariable]: valueToSave };
+      const newMetadata = { ...currentMetadata, [varName]: valueToSave };
 
       await ctx.prisma.user.update({
         where: { id: ctx.user.id },

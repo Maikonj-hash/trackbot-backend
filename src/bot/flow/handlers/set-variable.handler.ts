@@ -20,15 +20,17 @@ export class SetVariableHandler implements IStepHandler {
     const currentMetadata = (ctx.user as any).metadata || {};
     let newValue: any = step.value;
 
+    const varName = step.variable.toLowerCase();
+
     if (step.action === 'INCREMENT' || step.action === 'DECREMENT') {
-      const currentValue = Number(currentMetadata[step.variable]) || 0;
+      const currentValue = Number(currentMetadata[varName]) || 0;
       const change = Number(step.value) || 0;
       newValue = step.action === 'INCREMENT' ? currentValue + change : currentValue - change;
     }
 
     const newMetadata = {
       ...currentMetadata,
-      [step.variable]: newValue
+      [varName]: newValue
     };
 
     await ctx.prisma.user.update({

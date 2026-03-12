@@ -181,6 +181,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
             return !!ctx.user.name && ctx.user.name !== 'User';
         }
         const metadata = (ctx.user as any).metadata || {};
-        return metadata[field.saveToVariable] !== undefined && metadata[field.saveToVariable] !== '';
+        const varName = field.saveToVariable.toLowerCase();
+        return metadata[varName] !== undefined && metadata[varName] !== '';
     }
 }

@@ -11,10 +11,20 @@ export class OptionsHandler implements IStepHandler {
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as OptionsStep;
     const input = ctx.msg.content.trim();
-    const optionsKeys = Object.keys(step.options || {});
 
-    if (step.options && step.options[input]) {
-      return step.options[input];
+    // 1. Load options (Static + Dynamic)
+    const options = { ...(step.options || {}) };
+    if (step.dynamicOptionsVariable) {
+      const dynamicOptions = ctx.variableService.get(ctx.user, step.dynamicOptionsVariable.toLowerCase());
+      if (dynamicOptions && typeof dynamicOptions === 'object') {
+        Object.assign(options, dynamicOptions);
+      }
+    }
+
+    const optionsKeys = Object.keys(options);
+
+    if (options[input]) {
+      return options[input];
     }
     const normalizedInput = input.toLowerCase();
     const caseInsensitiveMatch = optionsKeys.find(k => k.toLowerCase() === normalizedInput);
@@ -25,14 +35,14 @@ export class OptionsHandler implements IStepHandler {
     for (const key of optionsKeys) {
       const resolvedKey = ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef });
       if (resolvedKey.toLowerCase() === normalizedInput) {
-        return step.options[key];
+        return options[key];
       }
     }
 
     const numericIndex = parseInt(input) - 1;
     if (!isNaN(numericIndex) && numericIndex >= 0 && numericIndex < optionsKeys.length) {
       const selectedKey = optionsKeys[numericIndex];
-      return step.options[selectedKey];
+      return options[selectedKey];
     }
 
     const resolvedContent = ctx.variableService.resolve(step.content, {
@@ -52,13 +62,22 @@ export class OptionsHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as OptionsStep;
 
+    // 1. Load options (Static + Dynamic)
+    const options = { ...(step.options || {}) };
+    if (step.dynamicOptionsVariable) {
+      const dynamicOptions = ctx.variableService.get(ctx.user, step.dynamicOptionsVariable.toLowerCase());
+      if (dynamicOptions && typeof dynamicOptions === 'object') {
+        Object.assign(options, dynamicOptions);
+      }
+    }
+
+    const optionsKeys = Object.keys(options);
+    const optionsCount = optionsKeys.length;
+
     const resolvedContent = ctx.variableService.resolve(step.content, {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });
-
-    const optionsKeys = Object.keys(step.options || {});
-    const optionsCount = optionsKeys.length;
 
     const textOptionsList = optionsKeys
       .map((key, i) => `*${i + 1}.* ${ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef })}`);

@@ -44,7 +44,8 @@ export class VariableService {
             }
 
             if (scope === 'metadata' || parts.length === 1) {
-                const metaPath = scope === 'metadata' ? field : path;
+                const rawPath = scope === 'metadata' ? field : path;
+                const metaPath = rawPath.toLowerCase(); // Normalização para case-insensitive
                 const metadata = (context.user as any).metadata || {};
                 return this.getDeepValue(metadata, metaPath);
             }

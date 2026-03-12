@@ -79,18 +79,18 @@ export class HttpRequestHandler implements IStepHandler {
       let metadataUpdates: any = {};
 
       if (step.saveStatusToVariable) {
-        metadataUpdates[step.saveStatusToVariable] = responseStatus;
+        metadataUpdates[step.saveStatusToVariable.toLowerCase()] = responseStatus;
       }
 
       if (step.saveResponseToVariable) {
-        metadataUpdates[step.saveResponseToVariable] = responseData;
+        metadataUpdates[step.saveResponseToVariable.toLowerCase()] = responseData;
       }
 
       if (step.responseMapping && Array.isArray(step.responseMapping)) {
         for (const mapping of step.responseMapping) {
           const value = this.getDeepValue(responseData, mapping.jsonPath);
           if (value !== undefined) {
-            metadataUpdates[mapping.variableName] = value;
+            metadataUpdates[mapping.variableName.toLowerCase()] = value;
           }
         }
       }
@@ -115,7 +115,7 @@ export class HttpRequestHandler implements IStepHandler {
         const currentMetadata = (ctx.user as any).metadata || {};
         await ctx.prisma.user.update({
           where: { id: ctx.user.id },
-          data: { metadata: { ...currentMetadata, [step.saveStatusToVariable]: 500 } },
+          data: { metadata: { ...currentMetadata, [step.saveStatusToVariable.toLowerCase()]: 500 } },
         });
       }
 
