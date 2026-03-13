@@ -83,7 +83,6 @@ export class UserController {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
 
-    // Limpar Redis antes de deletar do banco
     if (user.instanceId && user.phone) {
       await this.stateService.clearStep(user.instanceId, user.phone);
       await this.stateService.clearMetadata(user.instanceId, user.phone);
@@ -108,7 +107,7 @@ export class UserController {
     return { success: true };
   }
 
-  @Post(':id') // Suporte a PATCH via POST para compatibilidade se necessário, mas usaremos Patch formal
+  @Post(':id')
   async updateUserInfo(@Param('id') id: string, @Body() data: any) {
     return this.updateUser(id, data);
   }
@@ -118,7 +117,6 @@ export class UserController {
     return this.updateUser(id, data);
   }
 
-  // Método formal de Update
   async updateUser(id: string, data: { name?: string; metadata?: any }) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');

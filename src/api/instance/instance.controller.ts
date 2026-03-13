@@ -66,7 +66,6 @@ export class InstanceController {
 
   @Post(':id/connect')
   async connectInstance(@Param('id') id: string) {
-    // Força a parada da sessão atual para garantir um novo QR Code caso solicitado
     await this.sessionManager.stopSession(id);
     await this.sessionManager.startSession(id);
     return { success: true, message: `Iniciando tentativa de conexão para ${id}...` };
@@ -88,7 +87,6 @@ export class InstanceController {
       }
 
       if (!flow.publishedContent) {
-        // Apenas um log, não bloqueia, mas é um aviso de inconsistência potencial
         this.logger.warn(`Associando instância ${id} ao fluxo ${data.flowId} que não possui conteúdo publicado.`);
       }
     }

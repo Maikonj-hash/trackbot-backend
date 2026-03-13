@@ -4,7 +4,7 @@ import { TicketService } from '../ticket.service';
 
 @Injectable()
 export class EndHandler implements IStepHandler {
-  constructor(private readonly ticketService: TicketService) {}
+  constructor(private readonly ticketService: TicketService) { }
 
   canHandle(type: string): boolean {
     return type === 'END';
@@ -18,7 +18,6 @@ export class EndHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as any;
 
-    // Persistência modular do ticket histórico
     await this.ticketService.createFromFlow(ctx.user, ctx.flowDef);
 
     if (step.resetType === 'TIMEOUT' && step.timeoutValue) {

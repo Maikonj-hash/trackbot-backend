@@ -46,7 +46,7 @@ export class FlowService {
     id: string,
     data: { name?: string; description?: string; jsonContent?: any },
   ) {
-    await this.findOne(id); // Ensure exists
+    await this.findOne(id);
     return this.prisma.flow.update({
       where: { id },
       data,
@@ -54,24 +54,20 @@ export class FlowService {
   }
 
   async remove(id: string) {
-    await this.findOne(id); // Ensure exists
+    await this.findOne(id);
     return this.prisma.flow.delete({
       where: { id },
     });
   }
 
   async attachToInstance(flowId: string, instanceId: string) {
-    await this.findOne(flowId); // Ensure exists
+    await this.findOne(flowId);
     return this.prisma.whatsappInstance.update({
       where: { id: instanceId },
       data: { flowId: flowId },
     });
   }
 
-  /**
-   * Publicar o fluxo: Move o backendFlow do rascunho (jsonContent) para a produção (publishedContent)
-   * e invalida o cache na memória do bot para atualização instantânea.
-   */
   async publish(id: string) {
     const flow = await this.findOne(id);
     const json = flow.jsonContent as any;
@@ -92,12 +88,10 @@ export class FlowService {
       }
     });
 
-    // Invalida cache e reseta sessões de todas as instâncias vinculadas
     for (const instance of updated.instances) {
       await this.botFlowService.invalidateCache(id, instance.id);
     }
 
-    // Caso não tenha instâncias, ainda invalida o cache global
     if (updated.instances.length === 0) {
       await this.botFlowService.invalidateCache(id);
     }
