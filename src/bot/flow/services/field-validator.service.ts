@@ -15,7 +15,7 @@ export class FieldValidatorService {
     expectedType?: string,
   ): Promise<ValidationResult> {
     if (!value || typeof value !== 'string') {
-        return { isValid: false, errorMessage: 'Formato inválido. Por favor, envie um texto.' };
+      return { isValid: false, errorMessage: 'Formato inválido. Por favor, envie um texto.' };
     }
 
     const trimmedValue = value.trim();
@@ -42,7 +42,6 @@ export class FieldValidatorService {
         return this.validateTime(trimmedValue);
       case 'TEXT':
       default:
-        // No strict validation for generic TEXT
         return { isValid: true, value: trimmedValue };
     }
   }
@@ -68,7 +67,7 @@ export class FieldValidatorService {
 
   private validateCpfCnpj(value: string): ValidationResult {
     const cleanDoc = value.replace(/\D/g, '');
-    
+
     let isValid = false;
 
     if (cleanDoc.length === 11) {
@@ -106,8 +105,8 @@ export class FieldValidatorService {
     let sum = 0;
     let pos = size - 7;
     for (let i = size; i >= 1; i--) {
-        sum += parseInt(numbers.charAt(size - i)) * pos--;
-        if (pos < 2) pos = 9;
+      sum += parseInt(numbers.charAt(size - i)) * pos--;
+      if (pos < 2) pos = 9;
     }
     let result = sum % 11 < 2 ? 0 : 11 - sum % 11;
     if (result !== parseInt(digits.charAt(0))) return false;
@@ -117,8 +116,8 @@ export class FieldValidatorService {
     sum = 0;
     pos = size - 7;
     for (let i = size; i >= 1; i--) {
-        sum += parseInt(numbers.charAt(size - i)) * pos--;
-        if (pos < 2) pos = 9;
+      sum += parseInt(numbers.charAt(size - i)) * pos--;
+      if (pos < 2) pos = 9;
     }
     result = sum % 11 < 2 ? 0 : 11 - sum % 11;
     return result === parseInt(digits.charAt(1));
@@ -155,12 +154,11 @@ export class FieldValidatorService {
   }
 
   private validateDate(value: string): ValidationResult {
-    // Strict validation matching D/M/YYYY or DD/MM/YYYY (enforces 4 digit year)
     const regex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
     const match = value.match(regex);
-    
+
     if (!match) {
-        return { isValid: false, errorMessage: 'Formato de data inválido. Use DD/MM/AAAA.' };
+      return { isValid: false, errorMessage: 'Formato de data inválido. Use DD/MM/AAAA.' };
     }
 
     const day = parseInt(match[1], 10);
@@ -172,7 +170,7 @@ export class FieldValidatorService {
     const isWithinRange = year >= 1900 && year <= 2100;
 
     if (!isValid || !isWithinRange) {
-        return { isValid: false, errorMessage: 'A data informada não existe no calendário ou é inválida.' };
+      return { isValid: false, errorMessage: 'A data informada não existe no calendário ou é inválida.' };
     }
 
     return {
@@ -182,19 +180,17 @@ export class FieldValidatorService {
   }
 
   private validateTime(value: string): ValidationResult {
-    // Validates HH:MM formats (supports H:MM)
     const regex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
     const match = value.match(regex);
-    
+
     if (!match) {
-        return { isValid: false, errorMessage: 'Formato de horário inválido. Use HH:MM.' };
+      return { isValid: false, errorMessage: 'Formato de horário inválido. Use HH:MM.' };
     }
-    
-    // Auto format 9:00 to 09:00
+
     const formatted = `${match[1].padStart(2, '0')}:${match[2]}`;
     return {
-        isValid: true,
-        value: formatted,
+      isValid: true,
+      value: formatted,
     };
   }
 }
