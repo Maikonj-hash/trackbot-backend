@@ -136,13 +136,24 @@ export class VariableService {
     }
 
     private resolveContactVariable(field: string, user: User): any {
+        const metadata = (user as any).metadata || {};
+
         if (field === 'phone') {
+            // Prioriza o whatsapp capturado via fluxo (identidade promovida)
+            if (metadata.whatsapp_real) return metadata.whatsapp_real;
+
             if (user.phone && user.phone.includes('@lid')) {
                 return 'Número Oculto (Privacidade Meta)';
             }
-            return user.phone;
+            return user.phone.split('@')[0];
         }
-        if (field === 'name') return user.name || '';
+
+        if (field === 'name') {
+            if (!user.name || user.name === 'UNIDENTIFIED_USER' || user.name === 'User') {
+                return metadata.name || 'Cliente';
+            }
+            return user.name;
+        }
         return undefined;
     }
 

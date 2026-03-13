@@ -168,30 +168,54 @@ export class CustomerIdentificationHandler implements IStepHandler {
     }
 
     private async saveFieldValue(ctx: StepHandlerContext, field: CustomerIdentificationField, value: string) {
-        if (field.saveToVariable === 'name') {
-            await ctx.prisma.user.update({
-                where: { id: ctx.user.id },
-                data: { name: value },
-            });
+        const userId = ctx.user.id;
+        const updateData: any = {};
+        const currentMetadata = (ctx.user as any).metadata || {};
+
+        if (field.saveToVariable === 'wpp_name') {
+            updateData.name = value;
+            ctx.user.name = value;
+        } else if (field.saveToVariable === 'wpp_phone') {
+            const cleanPhone = value.replace(/\D/g, '');
+            updateData.metadata = { ...currentMetadata, whatsapp_real: cleanPhone };
+            (ctx.user as any).metadata = updateData.metadata;
+        } else if (field.saveToVariable === 'name' || field.saveToVariable === 'phone') {
+            // Suporte legado para garantir compatibilidade
+            if (field.saveToVariable === 'name') {
+                updateData.name = value;
+                ctx.user.name = value;
+            } else {
+                const cleanPhone = value.replace(/\D/g, '');
+                updateData.metadata = { ...currentMetadata, whatsapp_real: cleanPhone };
+                (ctx.user as any).metadata = updateData.metadata;
+            }
         } else {
             const varName = field.saveToVariable.toLowerCase();
-            const currentMetadata = (ctx.user as any).metadata || {};
-            const newMetadata = { ...currentMetadata, [varName]: value };
+            updateData.metadata = { ...currentMetadata, [varName]: value };
+            (ctx.user as any).metadata = updateData.metadata;
+        }
 
+        if (Object.keys(updateData).length > 0) {
             await ctx.prisma.user.update({
-                where: { id: ctx.user.id },
-                data: { metadata: newMetadata },
+                where: { id: userId },
+                data: updateData,
             });
-            (ctx.user as any).metadata = newMetadata;
         }
     }
 
     private async checkIfFieldHasValue(ctx: StepHandlerContext, field: CustomerIdentificationField): Promise<boolean> {
-        if (field.saveToVariable === 'name') {
-            return !!ctx.user.name && ctx.user.name !== 'User';
-        }
-        const metadata = (ctx.user as any).metadata || {};
         const varName = field.saveToVariable.toLowerCase();
+        
+        if (varName === 'name' || varName === 'wpp_name') {
+            return !!ctx.user.name && ctx.user.name !== 'User' && ctx.user.name !== 'UNIDENTIFIED_USER';
+        }
+        
+        const metadata = (ctx.user as any).metadata || {};
+        
+        if (varName === 'phone' || varName === 'wpp_phone') {
+            return !!metadata.whatsapp_real;
+        }
+
         return metadata[varName] !== undefined && metadata[varName] !== '';
     }
 }
