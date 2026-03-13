@@ -38,6 +38,16 @@ export class SetVariableHandler implements IStepHandler {
       data: { metadata: newMetadata },
     });
 
+    // Registro de Jornada (Interação - Alteração Interna de Variável)
+    await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+      type: 'INTERACTION',
+      nodeId: step.id,
+      nodeType: step.type,
+      label: `Set: ${step.variable}`,
+      value: String(newValue),
+      timestamp: new Date().toISOString(),
+    });
+
     this.logger.log(
       `[VAR ENGINE] User: ${ctx.user.phone} | Var: ${step.variable} | Action: ${step.action} | New Value: ${newValue}`,
     );

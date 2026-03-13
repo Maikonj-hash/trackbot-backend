@@ -17,7 +17,7 @@ export class TicketService {
     try {
       this.logger.log(`[TicketService] Gerando ticket para usuário ${user.phone}`);
 
-      const payloadRaw = this.variableService.get(user, 'sys.payload', flowDef);
+      const payloadRaw = await this.variableService.get(user, 'sys.payload', flowDef);
       
       let payload: any;
       try {

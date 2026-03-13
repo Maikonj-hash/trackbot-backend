@@ -22,9 +22,19 @@ export class HandoverHandler implements IStepHandler {
       },
     });
 
-    const resolvedDep = ctx.variableService.resolve(step.department || 'General', {
+    const resolvedDep = await ctx.variableService.resolve(step.department || 'General', {
       user: ctx.user,
       flowDef: ctx.flowDef,
+    });
+
+    // Registro de Jornada (Interação - Transbordo para Humano)
+    await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+      type: 'INTERACTION',
+      nodeId: step.id,
+      nodeType: step.type,
+      label: 'Transbordo',
+      value: `Encaminhado para: ${resolvedDep}`,
+      timestamp: new Date().toISOString(),
     });
 
     // Emite no WebSocket para a Dashboard React/Vue pintar o painel do atendente de vermehlo

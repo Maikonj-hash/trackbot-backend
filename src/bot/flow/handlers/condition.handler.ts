@@ -17,15 +17,13 @@ export class ConditionHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as ConditionStep;
 
-    const leftValue = ctx.variableService.resolve(`{{${step.variable}}}`, {
-      user: ctx.user,
-      flowDef: ctx.flowDef,
-    });
-
-    const rightValue = step.value;
+    const leftValue = await ctx.variableService.get(ctx.user, step.variable, ctx.flowDef);
+    const rightValue = (typeof step.value === 'string')
+        ? await ctx.variableService.resolve(step.value, { user: ctx.user, flowDef: ctx.flowDef })
+        : step.value;
     let isTrue = false;
 
-    const finalLeftValue = leftValue === `{{${step.variable}}}` ? '' : leftValue;
+    const finalLeftValue = leftValue === null || leftValue === undefined ? '' : String(leftValue);
 
     switch (step.operator) {
       case 'EQUALS':

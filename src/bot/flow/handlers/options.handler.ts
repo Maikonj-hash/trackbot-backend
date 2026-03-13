@@ -12,40 +12,37 @@ export class OptionsHandler implements IStepHandler {
     const step = ctx.step as OptionsStep;
     const input = ctx.msg.content.trim();
 
-    // 1. Load options (Static + Dynamic)
-    const options = { ...(step.options || {}) };
-    if (step.dynamicOptionsVariable) {
-      const dynamicOptions = ctx.variableService.get(ctx.user, step.dynamicOptionsVariable.toLowerCase());
-      if (dynamicOptions && typeof dynamicOptions === 'object') {
-        Object.assign(options, dynamicOptions);
-      }
-    }
-
+    const options = await this.loadOptions(ctx, step);
     const optionsKeys = Object.keys(options);
 
-    if (options[input]) {
-      return options[input];
-    }
     const normalizedInput = input.toLowerCase();
     const caseInsensitiveMatch = optionsKeys.find(k => k.toLowerCase() === normalizedInput);
-    if (caseInsensitiveMatch && step.options) {
-      return step.options[caseInsensitiveMatch];
-    }
-
-    for (const key of optionsKeys) {
-      const resolvedKey = ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef });
-      if (resolvedKey.toLowerCase() === normalizedInput) {
-        return options[key];
+    
+    let selectedKey = options[input] ? input : caseInsensitiveMatch;
+    
+    // Suporte a índice numérico
+    if (!selectedKey) {
+      const numericIndex = parseInt(input) - 1;
+      if (!isNaN(numericIndex) && numericIndex >= 0 && numericIndex < optionsKeys.length) {
+        selectedKey = optionsKeys[numericIndex];
       }
     }
 
-    const numericIndex = parseInt(input) - 1;
-    if (!isNaN(numericIndex) && numericIndex >= 0 && numericIndex < optionsKeys.length) {
-      const selectedKey = optionsKeys[numericIndex];
+    if (selectedKey) {
+      // Registro de Jornada (Interação)
+      const resolvedLabel = await ctx.variableService.resolve(selectedKey, { user: ctx.user, flowDef: ctx.flowDef });
+      await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+        type: 'INTERACTION',
+        nodeId: step.id,
+        nodeType: step.type,
+        value: resolvedLabel,
+        timestamp: new Date().toISOString(),
+      });
+      
       return options[selectedKey];
     }
 
-    const resolvedContent = ctx.variableService.resolve(step.content, {
+    const resolvedContent = await ctx.variableService.resolve(step.content, {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });
@@ -62,25 +59,23 @@ export class OptionsHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as OptionsStep;
 
-    // 1. Load options (Static + Dynamic)
-    const options = { ...(step.options || {}) };
-    if (step.dynamicOptionsVariable) {
-      const dynamicOptions = ctx.variableService.get(ctx.user, step.dynamicOptionsVariable.toLowerCase());
-      if (dynamicOptions && typeof dynamicOptions === 'object') {
-        Object.assign(options, dynamicOptions);
-      }
-    }
-
+    const options = await this.loadOptions(ctx, step);
     const optionsKeys = Object.keys(options);
     const optionsCount = optionsKeys.length;
 
-    const resolvedContent = ctx.variableService.resolve(step.content, {
+    const resolvedContent = await ctx.variableService.resolve(step.content, {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });
 
-    const textOptionsList = optionsKeys
-      .map((key, i) => `*${i + 1}.* ${ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef })}`);
+    const resolvedOptions = await Promise.all(
+      optionsKeys.map(async (key) => ({
+        key,
+        label: await ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }),
+      }))
+    );
+
+    const textOptionsList = resolvedOptions.map((opt, i) => `*${i + 1}.* ${opt.label}`);
 
     const hasHistory = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.userPhone);
     if (hasHistory && step.allowBack) {
@@ -97,23 +92,20 @@ export class OptionsHandler implements IStepHandler {
 
     if (shouldSendNative) {
       if (totalOptions <= 3) {
-        const buttons = optionsKeys.map((key) => ({
-          id: key,
-          text: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 20),
+        const buttons = resolvedOptions.map((opt) => ({
+          id: opt.key,
+          text: opt.label.substring(0, 20),
         }));
 
         if (hasHistory && step.allowBack) {
           buttons.push({ id: '0', text: '↩️ Voltar' });
         }
 
-        interactive = {
-          type: 'button',
-          buttons,
-        };
+        interactive = { type: 'button', buttons };
       } else {
-        const rows = optionsKeys.map((key) => ({
-          id: key,
-          title: ctx.variableService.resolve(key, { user: ctx.user, flowDef: ctx.flowDef }).substring(0, 24),
+        const rows = resolvedOptions.map((opt) => ({
+          id: opt.key,
+          title: opt.label.substring(0, 24),
         }));
 
         if (hasHistory && step.allowBack) {
@@ -123,15 +115,10 @@ export class OptionsHandler implements IStepHandler {
         interactive = {
           type: 'list',
           list: {
-            buttonText: ctx.variableService.resolve(step.listButtonLabel || 'Selecionar', { user: ctx.user, flowDef: ctx.flowDef }),
-            title: ctx.variableService.resolve(step.listTitle || 'Opções', { user: ctx.user, flowDef: ctx.flowDef }),
-            footer: ctx.variableService.resolve(step.listFooter || '', { user: ctx.user, flowDef: ctx.flowDef }),
-            sections: [
-              {
-                title: 'Escolha uma opção',
-                rows,
-              },
-            ],
+            buttonText: await ctx.variableService.resolve(step.listButtonLabel || 'Selecionar', { user: ctx.user, flowDef: ctx.flowDef }),
+            title: await ctx.variableService.resolve(step.listTitle || 'Opções', { user: ctx.user, flowDef: ctx.flowDef }),
+            footer: await ctx.variableService.resolve(step.listFooter || '', { user: ctx.user, flowDef: ctx.flowDef }),
+            sections: [{ title: 'Escolha uma opção', rows }],
           },
         };
       }
@@ -148,5 +135,16 @@ export class OptionsHandler implements IStepHandler {
     });
 
     return null;
+  }
+
+  private async loadOptions(ctx: StepHandlerContext, step: OptionsStep): Promise<Record<string, string>> {
+    const options = { ...(step.options || {}) };
+    if (step.dynamicOptionsVariable) {
+      const dynamicOptions = await ctx.variableService.get(ctx.user, step.dynamicOptionsVariable.toLowerCase());
+      if (dynamicOptions && typeof dynamicOptions === 'object') {
+        Object.assign(options, dynamicOptions);
+      }
+    }
+    return options;
   }
 }

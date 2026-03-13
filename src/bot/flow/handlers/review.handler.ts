@@ -24,7 +24,7 @@ export class ReviewHandler implements IStepHandler {
             let allFilled = true;
             for (const field of fields) {
                 const varName = field.variableName?.toLowerCase();
-                const value = ctx.variableService.get(ctx.user, varName);
+                const value = await ctx.variableService.get(ctx.user, field.variableName.toLowerCase(), ctx.flowDef);
                 if (!value || value === '_Não informado_') {
                     allFilled = false;
                     break;
@@ -37,7 +37,7 @@ export class ReviewHandler implements IStepHandler {
             }
         }
 
-        let summary = ctx.variableService.resolve(step.content || "📋 *Confirme seus dados:*", {
+        let summary = await ctx.variableService.resolve(step.content || "📋 *Confirme seus dados:*", {
             user: ctx.user,
             flowDef: ctx.flowDef,
         }) + '\n\n';
@@ -46,7 +46,7 @@ export class ReviewHandler implements IStepHandler {
         for (const field of fields) {
             // Normaliza para lowercase para bater com o que é salvo no IdentificationHandler
             const varName = field.variableName?.toLowerCase();
-            const value = ctx.variableService.get(ctx.user, varName) || '_Não informado_';
+            const value = (await ctx.variableService.get(ctx.user, varName, ctx.flowDef)) || '_Não informado_';
             summary += `*${field.label}:* ${value}\n`;
         }
 
@@ -77,6 +77,17 @@ export class ReviewHandler implements IStepHandler {
 
         if (input === '1') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
+            
+            // Registro de Jornada (Interação - Confirmação)
+            await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+                type: 'INTERACTION',
+                nodeId: step.id,
+                nodeType: step.type,
+                label: 'Confirmar',
+                value: 'Dados Confirmados',
+                timestamp: new Date().toISOString(),
+            });
+
             return step.nextStepId ?? null;
         }
 
@@ -126,6 +137,16 @@ export class ReviewHandler implements IStepHandler {
 
         const selectedField = step.fields[index];
         const varName = selectedField.variableName.toLowerCase();
+
+        // Registro de Jornada (Interação - Seleção de Campo para Editar)
+        await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+            type: 'INTERACTION',
+            nodeId: step.id,
+            nodeType: step.type,
+            label: 'Editar Campo',
+            value: selectedField.label,
+            timestamp: new Date().toISOString(),
+        });
 
         await this.clearVariable(ctx, varName);
 

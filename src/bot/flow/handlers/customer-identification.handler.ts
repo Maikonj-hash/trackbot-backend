@@ -40,6 +40,16 @@ export class CustomerIdentificationHandler implements IStepHandler {
 
         await this.saveFieldValue(ctx, currentField, value);
 
+        // Registro de Jornada (Interação)
+        await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+            type: 'INTERACTION',
+            nodeId: step.id,
+            nodeType: step.type,
+            label: currentField.label,
+            value: value,
+            timestamp: new Date().toISOString(),
+        });
+
         const isEditOne = await ctx.stateService.getMetadata(instanceId, userPhone, 'edit_one_mode');
         if (isEditOne === 'true') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'edit_one_mode');
@@ -90,7 +100,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
 
         let content = '';
         if (currentIndex === 0 && step.content) {
-            content = ctx.variableService.resolve(step.content, {
+            content = await ctx.variableService.resolve(step.content, {
                 user: ctx.user,
                 flowDef: ctx.flowDef,
             }) + '\n\n';

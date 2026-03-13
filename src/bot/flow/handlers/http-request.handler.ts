@@ -20,12 +20,12 @@ export class HttpRequestHandler implements IStepHandler {
     let responseData: any = {};
 
     try {
-      const url = ctx.variableService.resolve(step.url, {
+      const resolvedUrl = await ctx.variableService.resolve(step.url, {
         user: ctx.user,
         flowDef: ctx.flowDef,
       });
 
-      this.logger.log(`[HTTP REQUEST] Disparando ${step.method} para ${url}`);
+      this.logger.log(`[HTTP REQUEST] Disparando ${step.method} para ${resolvedUrl}`);
 
       const rawHeaders = step.headers || {};
       const requestHeaders: Record<string, string> = {
@@ -33,7 +33,7 @@ export class HttpRequestHandler implements IStepHandler {
       };
 
       for (const [key, value] of Object.entries(rawHeaders)) {
-        requestHeaders[key] = ctx.variableService.resolve(String(value), {
+        requestHeaders[key] = await ctx.variableService.resolve(String(value), {
           user: ctx.user,
           flowDef: ctx.flowDef,
         });
@@ -45,7 +45,7 @@ export class HttpRequestHandler implements IStepHandler {
           ? step.bodyPayload
           : JSON.stringify(step.bodyPayload);
 
-        body = ctx.variableService.resolve(bodyContent, {
+        body = await ctx.variableService.resolve(bodyContent, {
           user: ctx.user,
           flowDef: ctx.flowDef,
         });
@@ -59,7 +59,7 @@ export class HttpRequestHandler implements IStepHandler {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const response = await fetch(url, {
+      const response = await fetch(resolvedUrl, {
         method: step.method,
         headers: requestHeaders,
         body,
@@ -88,7 +88,7 @@ export class HttpRequestHandler implements IStepHandler {
 
       if (step.responseMapping && Array.isArray(step.responseMapping)) {
         for (const mapping of step.responseMapping) {
-          const value = this.getDeepValue(responseData, mapping.jsonPath);
+          const value = ctx.variableService.getDeepValue(responseData, mapping.jsonPath);
           if (value !== undefined) {
             metadataUpdates[mapping.variableName.toLowerCase()] = value;
           }
@@ -121,12 +121,5 @@ export class HttpRequestHandler implements IStepHandler {
 
       return step.failureStepId || step.nextStepId || null;
     }
-  }
-
-  private getDeepValue(obj: any, path: string): any {
-    if (!obj || !path) return undefined;
-    return path.split('.').reduce((prev, curr) => {
-      return prev ? prev[curr] : undefined;
-    }, obj);
   }
 }

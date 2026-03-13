@@ -101,6 +101,37 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
     await this.redis.del(`session:${instanceId}:${userPhone}:history`);
   }
 
+  async pushJourney(
+    instanceId: string,
+    userPhone: string,
+    event: {
+      type: 'ENTRY' | 'INTERACTION';
+      nodeId: string;
+      nodeType: string;
+      label?: string;
+      value?: string;
+      timestamp: string;
+    },
+  ): Promise<void> {
+    const key = `session:${instanceId}:${userPhone}:journey`;
+    await this.redis.rpush(key, JSON.stringify(event));
+    await this.redis.ltrim(key, 0, 49); // Manter as últimas 50 interações para não sobrecarregar
+    await this.redis.expire(key, 86400);
+  }
+
+  async getJourney(
+    instanceId: string,
+    userPhone: string,
+  ): Promise<any[]> {
+    const key = `session:${instanceId}:${userPhone}:journey`;
+    const items = await this.redis.lrange(key, 0, -1);
+    return items.map((item) => JSON.parse(item));
+  }
+
+  async clearJourney(instanceId: string, userPhone: string): Promise<void> {
+    await this.redis.del(`session:${instanceId}:${userPhone}:journey`);
+  }
+
   async clearFlowSessions(instanceId: string): Promise<void> {
     const pattern = `session:${instanceId}:*`;
     let cursor = '0';

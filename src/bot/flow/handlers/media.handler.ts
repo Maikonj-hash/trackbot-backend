@@ -17,12 +17,12 @@ export class MediaHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as MediaStep;
 
-    const resolvedUrl = ctx.variableService.resolve(step.url, {
+    const resolvedUrl = await ctx.variableService.resolve(step.url, {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });
 
-    const resolvedCaption = ctx.variableService.resolve(step.caption || '', {
+    const resolvedCaption = await ctx.variableService.resolve(step.caption || '', {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });
@@ -35,6 +35,16 @@ export class MediaHandler implements IStepHandler {
       mediaType: step.mediaType,
       ptt: step.ptt,
       delayMs: 2500,
+    });
+
+    // Registro de Jornada (Interação - Envio de Mídia)
+    await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+      type: 'INTERACTION',
+      nodeId: step.id,
+      nodeType: step.type,
+      label: `Mídia: ${step.mediaType}`,
+      value: resolvedUrl.split('/').pop() || step.mediaType,
+      timestamp: new Date().toISOString(),
     });
 
     return step.nextStepId ?? null;

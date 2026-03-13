@@ -58,6 +58,16 @@ export class InputHandler implements IStepHandler {
 
     const valueToSave = validation.value ?? rawValue;
 
+    // Registro de Jornada (Interação)
+    await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+      type: 'INTERACTION',
+      nodeId: step.id,
+      nodeType: step.type,
+      label: step.saveToVariable,
+      value: String(valueToSave),
+      timestamp: new Date().toISOString(),
+    });
+
     if (step.saveToVariable === 'name') {
       await ctx.prisma.user.update({
         where: { id: ctx.user.id },
@@ -80,7 +90,7 @@ export class InputHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as InputStep;
 
-    const content = ctx.variableService.resolve(step.content, {
+    const content = await ctx.variableService.resolve(step.content, {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });

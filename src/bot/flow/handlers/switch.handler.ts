@@ -26,9 +26,20 @@ export class SwitchHandler implements IStepHandler {
             return switchStep.defaultStepId || null;
         }
 
-        const rawValue = this.variableService.resolve(`{{${evalVar}}}`, { user: ctx.user, flowDef: ctx.flowDef });
-        const isUnresolved = rawValue === `{{${evalVar}}}` || rawValue === undefined || rawValue === null;
+        const rawValue = await this.variableService.get(ctx.user, evalVar, ctx.flowDef);
+        const isUnresolved = rawValue === undefined || rawValue === null;
         const stringValue = isUnresolved ? "" : String(rawValue).trim().toLowerCase();
+
+        // Registro de Jornada (Interação - Decisão do Switch)
+        await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
+            type: 'INTERACTION',
+            nodeId: switchStep.id,
+            nodeType: switchStep.type,
+            label: `Switch: ${evalVar}`,
+            value: stringValue || '(vazio)',
+            timestamp: new Date().toISOString(),
+        });
+        
         for (const branch of switchStep.branches || []) {
             const branchVal = branch.value ? branch.value.trim().toLowerCase() : "";
             if (branchVal === stringValue) {

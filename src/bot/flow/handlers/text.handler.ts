@@ -18,7 +18,7 @@ export class TextHandler implements IStepHandler {
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
     const step = ctx.step as TextStep;
 
-    const content = ctx.variableService.resolve(step.content, {
+    const resolvedContent = await ctx.variableService.resolve(step.content, {
       user: ctx.user,
       flowDef: ctx.flowDef,
     });
@@ -26,7 +26,7 @@ export class TextHandler implements IStepHandler {
     await ctx.outgoingQueue.add('send', {
       instanceId: ctx.msg.instanceId,
       to: ctx.msg.sender,
-      content,
+      content: resolvedContent,
       delayMs: 1500,
     });
     return step.nextStepId ?? null;

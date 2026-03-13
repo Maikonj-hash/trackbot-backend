@@ -1,10 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { FlowDefinition } from './types';
+import { StateService } from '../state/state.service';
 
 @Injectable()
 export class VariableService {
     private readonly logger = new Logger(VariableService.name);
+
+    constructor(
+        @Inject(forwardRef(() => StateService))
+        private readonly stateService: StateService,
+    ) { }
 
     /**
      * Resolve placeholders no formato {{key}} dentro de um texto.
@@ -13,26 +19,38 @@ export class VariableService {
      * - {{metadata.field}} ex: {{metadata.email}}, {{metadata.orderId}}
      * - {{flow.field}} ex: {{flow.name}}
      */
-    resolve(text: string, context: { user: User; flowDef?: FlowDefinition }): string {
+    async resolve(text: string, context: { user: User; flowDef?: FlowDefinition }): Promise<string> {
         if (!text || !text.includes('{{')) return text;
 
-        return text.replace(/\{\{(.+?)\}\}/g, (match, path) => {
-            const value = this.getValueByPath(path.trim(), context);
-            return value !== undefined && value !== null ? String(value) : match;
-        });
+        const matches = Array.from(text.matchAll(/\{\{(.+?)\}\}/g));
+        let resolvedText = text;
+        const cache = new Map<string, string>();
+
+        for (const match of matches) {
+            const path = match[1].trim();
+            
+            if (!cache.has(path)) {
+                const value = await this.getValueByPath(path, context);
+                cache.set(path, value !== undefined && value !== null ? String(value) : match[0]);
+            }
+            
+            resolvedText = resolvedText.replace(match[0], cache.get(path)!);
+        }
+
+        return resolvedText;
     }
 
-    get(user: User, path: string, flowDef?: FlowDefinition): any {
+    async get(user: User, path: string, flowDef?: FlowDefinition): Promise<any> {
         return this.getValueByPath(path, { user, flowDef });
     }
 
-    private getValueByPath(path: string, context: { user: User; flowDef?: FlowDefinition }): any {
+    private async getValueByPath(path: string, context: { user: User; flowDef?: FlowDefinition }): Promise<any> {
         const parts = path.split('.');
         const scope = parts[0];
         const field = parts.slice(1).join('.');
 
         try {
-            if (scope === 'sys') return this.resolveSystemVariable(field, context);
+            if (scope === 'sys') return await this.resolveSystemVariable(field, context);
             if (scope === 'contact') return this.resolveContactVariable(field, context.user);
             if (scope === 'user') {
                 if (field.startsWith('metadata.')) {
@@ -61,7 +79,7 @@ export class VariableService {
         }
     }
 
-    private resolveSystemVariable(field: string, context: { user: User; flowDef?: FlowDefinition }): any {
+    private async resolveSystemVariable(field: string, context: { user: User; flowDef?: FlowDefinition }): Promise<any> {
         const now = new Date();
         switch (field) {
             case 'date':
@@ -91,10 +109,14 @@ export class VariableService {
                 const random = Math.floor(1000 + Math.random() * 9000);
                 return `${pDate}-${pTime}-${random}`;
             case 'payload':
-                // Serializa todo o contexto do ticket para JSON
+                // Serializa todo o contexto do ticket para JSON, incluindo a jornada
+                const journey = await this.stateService.getJourney(
+                    context.user.instanceId || 'unknown', 
+                    context.user.phone
+                );
                 const payload = {
                     ticket: {
-                        protocol: this.resolveSystemVariable('protocol', context),
+                        protocol: await this.resolveSystemVariable('protocol', context),
                         timestamp: now.toISOString(),
                         flowId: context.flowDef?.id || 'unknown',
                         flowName: context.flowDef?.name || 'unknown',
@@ -104,7 +126,8 @@ export class VariableService {
                         name: context.user.name,
                         phone: context.user.phone,
                         metadata: (context.user as any).metadata || {}
-                    }
+                    },
+                    journey: journey // Nova chave com o histórico detalhado
                 };
                 return JSON.stringify(payload);
             default:
@@ -123,7 +146,7 @@ export class VariableService {
         return undefined;
     }
 
-    private getDeepValue(obj: any, path: string): any {
+    public getDeepValue(obj: any, path: string): any {
         if (!obj || typeof obj !== 'object') return undefined;
         return path.split('.').reduce((prev, curr) => {
             return prev && prev[curr] !== undefined ? prev[curr] : undefined;

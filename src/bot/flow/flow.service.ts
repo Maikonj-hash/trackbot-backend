@@ -125,6 +125,7 @@ export class FlowService {
           }
 
           await this.stateService.clearStep(msg.instanceId, phone);
+          await this.stateService.clearJourney(msg.instanceId, phone); // Limpa jornada ao sair do END
           currentStepId = null;
         }
       }
@@ -167,6 +168,7 @@ export class FlowService {
       };
 
       if (!currentStepId) {
+        await this.stateService.clearJourney(msg.instanceId, phone); // Começo de um novo atendimento
         const startStepId = flowDef.firstStepId || (user.name ? 'MENU_PRINCIPAL' : 'INITIAL');
         await this.executeStepChain(startStepId, ctx);
         return;
@@ -223,7 +225,7 @@ export class FlowService {
 
         ctx.step = step;
 
-        if (step.type === 'OPTIONS' || step.type === 'INPUT' || step.type === 'IDENTIFICATION') {
+        if (['OPTIONS', 'INPUT', 'CUSTOMER_IDENTIFICATION', 'REVIEW'].includes(step.type)) {
           const lastStep = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
           if (lastStep !== currentStepId) {
             await ctx.stateService.pushHistory(
@@ -239,6 +241,15 @@ export class FlowService {
           ctx.user.phone,
           currentStepId,
         );
+
+        // Registro de Jornada (Entrada no Nó)
+        await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.user.phone, {
+          type: 'ENTRY',
+          nodeId: currentStepId,
+          nodeType: step.type,
+          label: (step as any).label || step.type, // Tenta pegar label ou usa o tipo
+          timestamp: new Date().toISOString(),
+        });
 
         const handler = this.handlerFactory.getHandler(step.type);
         if (!handler) break;
