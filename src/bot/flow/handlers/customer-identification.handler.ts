@@ -171,26 +171,16 @@ export class CustomerIdentificationHandler implements IStepHandler {
         const userId = ctx.user.id;
         const updateData: any = {};
         const currentMetadata = (ctx.user as any).metadata || {};
+        const varName = field.saveToVariable.toLowerCase();
 
-        if (field.saveToVariable === 'wpp_name') {
+        if (varName === 'wpp_name' || varName === 'name') {
             updateData.name = value;
             ctx.user.name = value;
-        } else if (field.saveToVariable === 'wpp_phone') {
+        } else if (varName === 'wpp_phone' || varName === 'phone') {
             const cleanPhone = value.replace(/\D/g, '');
             updateData.metadata = { ...currentMetadata, whatsapp_real: cleanPhone };
             (ctx.user as any).metadata = updateData.metadata;
-        } else if (field.saveToVariable === 'name' || field.saveToVariable === 'phone') {
-            // Suporte legado para garantir compatibilidade
-            if (field.saveToVariable === 'name') {
-                updateData.name = value;
-                ctx.user.name = value;
-            } else {
-                const cleanPhone = value.replace(/\D/g, '');
-                updateData.metadata = { ...currentMetadata, whatsapp_real: cleanPhone };
-                (ctx.user as any).metadata = updateData.metadata;
-            }
         } else {
-            const varName = field.saveToVariable.toLowerCase();
             updateData.metadata = { ...currentMetadata, [varName]: value };
             (ctx.user as any).metadata = updateData.metadata;
         }
@@ -207,7 +197,8 @@ export class CustomerIdentificationHandler implements IStepHandler {
         const varName = field.saveToVariable.toLowerCase();
         
         if (varName === 'name' || varName === 'wpp_name') {
-            return !!ctx.user.name && ctx.user.name !== 'User' && ctx.user.name !== 'UNIDENTIFIED_USER';
+            const name = ctx.user.name;
+            return !!name && name !== 'User' && name !== 'UNIDENTIFIED_USER';
         }
         
         const metadata = (ctx.user as any).metadata || {};
