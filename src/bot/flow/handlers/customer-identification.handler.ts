@@ -53,8 +53,10 @@ export class CustomerIdentificationHandler implements IStepHandler {
         const isEditOne = await ctx.stateService.getMetadata(instanceId, userPhone, 'edit_one_mode');
         if (isEditOne === 'true') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'edit_one_mode');
-            await ctx.stateService.clearMetadata(instanceId, userPhone);
-            this.logger.log(`[IDENTIFICATION] Edit One mode finished for ${userPhone}. Returning to flow.`);
+            await ctx.stateService.deleteMetadata(instanceId, userPhone, 'identification_field_idx');
+            // Força a exibição do review após a correção
+            await ctx.stateService.setMetadata(instanceId, userPhone, 'force_review_once', 'true');
+            this.logger.log(`[IDENTIFICATION] Edit One mode finished for ${userPhone}. Forcing review next.`);
             return step.nextStepId ?? null;
         }
 
@@ -64,8 +66,10 @@ export class CustomerIdentificationHandler implements IStepHandler {
             await ctx.stateService.setMetadata(instanceId, userPhone, 'identification_field_idx', currentIndex.toString());
             return step.id;
         } else {
-            await ctx.stateService.clearMetadata(instanceId, userPhone);
-            this.logger.log(`[IDENTIFICATION] User ${userPhone} finished identification ${step.id}`);
+            await ctx.stateService.deleteMetadata(instanceId, userPhone, 'identification_field_idx');
+            // Ativa flag para o Review não pular na primeira vez após a identificação
+            await ctx.stateService.setMetadata(instanceId, userPhone, 'force_review_once', 'true');
+            this.logger.log(`[IDENTIFICATION] User ${userPhone} finished identification ${step.id}. Forcing review next.`);
             return step.nextStepId ?? null;
         }
     }
@@ -76,20 +80,28 @@ export class CustomerIdentificationHandler implements IStepHandler {
         const userPhone = ctx.userPhone;
 
         const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'identification_field_idx');
-        let currentIndex = parseInt(rawIndex || '0');
-
+        // Lógica de Salto Inteligente
         if (step.skipIfAlreadyFilled) {
-            while (currentIndex < step.fields.length) {
-                const field = step.fields[currentIndex];
-                const hasValue = await this.checkIfFieldHasValue(ctx, field);
-                if (hasValue) {
-                    currentIndex++;
-                } else {
-                    break;
+            const forceReview = await ctx.stateService.getMetadata(instanceId, userPhone, 'force_review_once');
+            if (forceReview !== 'true') {
+                const fields = step.fields || [];
+                let allFilled = true;
+                for (const field of fields) {
+                    const value = await ctx.variableService.get(ctx.user, field.saveToVariable, ctx.flowDef);
+                    if (value === undefined || value === null || value === '') {
+                        allFilled = false;
+                        break;
+                    }
+                }
+
+                if (allFilled) {
+                    this.logger.log(`[IDENTIFICATION] Skipping step ${step.id} (Smart Skip)`);
+                    return step.nextStepId ?? null;
                 }
             }
-            await ctx.stateService.setMetadata(instanceId, userPhone, 'identification_field_idx', currentIndex.toString());
         }
+
+        let currentIndex = parseInt(rawIndex || '0');
 
         if (currentIndex >= step.fields.length) {
             await ctx.stateService.clearMetadata(instanceId, userPhone);
@@ -176,13 +188,16 @@ export class CustomerIdentificationHandler implements IStepHandler {
         if (varName === 'wpp_name' || varName === 'name') {
             updateData.name = value;
             ctx.user.name = value;
+            this.logger.log(`[IDENTIFICATION] Promoting identity: name=${value}`);
         } else if (varName === 'wpp_phone' || varName === 'phone') {
             const cleanPhone = value.replace(/\D/g, '');
             updateData.metadata = { ...currentMetadata, whatsapp_real: cleanPhone };
             (ctx.user as any).metadata = updateData.metadata;
+            this.logger.log(`[IDENTIFICATION] Promoting identity: phone=${cleanPhone}`);
         } else {
             updateData.metadata = { ...currentMetadata, [varName]: value };
             (ctx.user as any).metadata = updateData.metadata;
+            this.logger.log(`[IDENTIFICATION] Saving custom variable: ${varName}=${value}`);
         }
 
         if (Object.keys(updateData).length > 0) {
@@ -194,19 +209,7 @@ export class CustomerIdentificationHandler implements IStepHandler {
     }
 
     private async checkIfFieldHasValue(ctx: StepHandlerContext, field: CustomerIdentificationField): Promise<boolean> {
-        const varName = field.saveToVariable.toLowerCase();
-        
-        if (varName === 'name' || varName === 'wpp_name') {
-            const name = ctx.user.name;
-            return !!name && name !== 'User' && name !== 'UNIDENTIFIED_USER';
-        }
-        
-        const metadata = (ctx.user as any).metadata || {};
-        
-        if (varName === 'phone' || varName === 'wpp_phone') {
-            return !!metadata.whatsapp_real;
-        }
-
-        return metadata[varName] !== undefined && metadata[varName] !== '';
+        const value = await ctx.variableService.get(ctx.user, field.saveToVariable, ctx.flowDef);
+        return value !== undefined && value !== null && value !== '';
     }
 }

@@ -18,22 +18,28 @@ export class ReviewHandler implements IStepHandler {
         // Limpa subestado de edição se entrar no step normalmente
         await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
 
-        // Lógica de Salto Inteligente (Padronizada)
+        // Lógica de Salto Inteligente
         if (step.skipIfAlreadyFilled) {
-            const fields = step.fields || [];
-            let allFilled = true;
-            for (const field of fields) {
-                const varName = field.variableName?.toLowerCase();
-                const value = await ctx.variableService.get(ctx.user, field.variableName.toLowerCase(), ctx.flowDef);
-                if (!value || value === '_Não informado_') {
-                    allFilled = false;
-                    break;
+            const forceReview = await ctx.stateService.getMetadata(instanceId, userPhone, 'force_review_once');
+            
+            if (forceReview === 'true') {
+                this.logger.log(`[REVIEW] Force review flag detected for ${userPhone}. Ignoring skip this time.`);
+                await ctx.stateService.deleteMetadata(instanceId, userPhone, 'force_review_once');
+            } else {
+                const fields = step.fields || [];
+                let allFilled = true;
+                for (const field of fields) {
+                    const value = await ctx.variableService.get(ctx.user, field.variableName, ctx.flowDef);
+                    if (value === undefined || value === null || value === '') {
+                        allFilled = false;
+                        break;
+                    }
                 }
-            }
 
-            if (allFilled) {
-                this.logger.log(`[REVIEW] Skipping step ${step.id} for user ${userPhone} because all fields are filled.`);
-                return step.nextStepId ?? null;
+                if (allFilled) {
+                    this.logger.log(`[REVIEW] Skipping step ${step.id} (Smart Skip)`);
+                    return step.nextStepId ?? null;
+                }
             }
         }
 
@@ -44,9 +50,7 @@ export class ReviewHandler implements IStepHandler {
 
         const fields = step.fields || [];
         for (const field of fields) {
-            // Normaliza para lowercase para bater com o que é salvo no IdentificationHandler
-            const varName = field.variableName?.toLowerCase();
-            const value = (await ctx.variableService.get(ctx.user, varName, ctx.flowDef)) || '_Não informado_';
+            const value = (await ctx.variableService.get(ctx.user, field.variableName, ctx.flowDef)) || '_Não informado_';
             summary += `*${field.label}:* ${value}\n`;
         }
 
