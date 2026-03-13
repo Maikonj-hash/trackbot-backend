@@ -17,10 +17,9 @@ export class OptionsHandler implements IStepHandler {
 
     const normalizedInput = input.toLowerCase();
     const caseInsensitiveMatch = optionsKeys.find(k => k.toLowerCase() === normalizedInput);
-    
+
     let selectedKey = options[input] ? input : caseInsensitiveMatch;
-    
-    // Suporte a índice numérico
+
     if (!selectedKey) {
       const numericIndex = parseInt(input) - 1;
       if (!isNaN(numericIndex) && numericIndex >= 0 && numericIndex < optionsKeys.length) {
@@ -29,7 +28,6 @@ export class OptionsHandler implements IStepHandler {
     }
 
     if (selectedKey) {
-      // Registro de Jornada (Interação)
       const resolvedLabel = await ctx.variableService.resolve(selectedKey, { user: ctx.user, flowDef: ctx.flowDef });
       await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
         type: 'INTERACTION',
@@ -38,7 +36,7 @@ export class OptionsHandler implements IStepHandler {
         value: resolvedLabel,
         timestamp: new Date().toISOString(),
       });
-      
+
       return options[selectedKey];
     }
 

@@ -30,7 +30,6 @@ export class SwitchHandler implements IStepHandler {
         const isUnresolved = rawValue === undefined || rawValue === null;
         const stringValue = isUnresolved ? "" : String(rawValue).trim().toLowerCase();
 
-        // Registro de Jornada (Interação - Decisão do Switch)
         await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
             type: 'INTERACTION',
             nodeId: switchStep.id,
@@ -39,7 +38,7 @@ export class SwitchHandler implements IStepHandler {
             value: stringValue || '(vazio)',
             timestamp: new Date().toISOString(),
         });
-        
+
         for (const branch of switchStep.branches || []) {
             const branchVal = branch.value ? branch.value.trim().toLowerCase() : "";
             if (branchVal === stringValue) {

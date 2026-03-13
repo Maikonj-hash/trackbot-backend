@@ -44,7 +44,6 @@ export class FlowController {
     return this.flowService.remove(id);
   }
 
-  // Rota especializada para vincular um fluxo a uma instancia conectada
   @Patch(':id/attach/:instanceId')
   attachFlow(@Param('id') id: string, @Param('instanceId') instanceId: string) {
     return this.flowService.attachToInstance(id, instanceId);

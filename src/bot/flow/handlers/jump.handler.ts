@@ -8,12 +8,11 @@ export class JumpHandler implements IStepHandler {
   }
 
   async executeStep(ctx: StepHandlerContext): Promise<string | null> {
-    const step = ctx.step as any; // JumpStep
+    const step = ctx.step as any;
     return step.targetStepId || null;
   }
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
-    // Jump nodes don't wait for input
     return null;
   }
 }

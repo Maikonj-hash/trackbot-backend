@@ -27,7 +27,6 @@ export class HandoverHandler implements IStepHandler {
       flowDef: ctx.flowDef,
     });
 
-    // Registro de Jornada (Interação - Transbordo para Humano)
     await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
       type: 'INTERACTION',
       nodeId: step.id,

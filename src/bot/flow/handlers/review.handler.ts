@@ -15,13 +15,11 @@ export class ReviewHandler implements IStepHandler {
         const instanceId = ctx.msg.instanceId;
         const userPhone = ctx.userPhone;
 
-        // Limpa subestado de edição se entrar no step normalmente
         await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
 
-        // Lógica de Salto Inteligente
         if (step.skipIfAlreadyFilled) {
             const forceReview = await ctx.stateService.getMetadata(instanceId, userPhone, 'force_review_once');
-            
+
             if (forceReview === 'true') {
                 this.logger.log(`[REVIEW] Force review flag detected for ${userPhone}. Ignoring skip this time.`);
                 await ctx.stateService.deleteMetadata(instanceId, userPhone, 'force_review_once');
@@ -81,8 +79,7 @@ export class ReviewHandler implements IStepHandler {
 
         if (input === '1') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
-            
-            // Registro de Jornada (Interação - Confirmação)
+
             await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
                 type: 'INTERACTION',
                 nodeId: step.id,
@@ -113,7 +110,6 @@ export class ReviewHandler implements IStepHandler {
             return null;
         }
 
-        // Se não for 1 ou 2, repete o executeStep (opcional) ou avisa erro
         return step.id;
     }
 
@@ -123,7 +119,6 @@ export class ReviewHandler implements IStepHandler {
 
         if (input === '0') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
-            // Re-executa o step principal
             await this.executeStep(ctx);
             return null;
         }
@@ -142,7 +137,6 @@ export class ReviewHandler implements IStepHandler {
         const selectedField = step.fields[index];
         const varName = selectedField.variableName.toLowerCase();
 
-        // Registro de Jornada (Interação - Seleção de Campo para Editar)
         await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
             type: 'INTERACTION',
             nodeId: step.id,

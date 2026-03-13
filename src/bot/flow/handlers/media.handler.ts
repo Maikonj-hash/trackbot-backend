@@ -37,7 +37,6 @@ export class MediaHandler implements IStepHandler {
       delayMs: 2500,
     });
 
-    // Registro de Jornada (Interação - Envio de Mídia)
     await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
       type: 'INTERACTION',
       nodeId: step.id,

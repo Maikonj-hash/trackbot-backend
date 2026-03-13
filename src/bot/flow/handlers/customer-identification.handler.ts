@@ -40,7 +40,6 @@ export class CustomerIdentificationHandler implements IStepHandler {
 
         await this.saveFieldValue(ctx, currentField, value);
 
-        // Registro de Jornada (Interação)
         await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
             type: 'INTERACTION',
             nodeId: step.id,
@@ -54,7 +53,6 @@ export class CustomerIdentificationHandler implements IStepHandler {
         if (isEditOne === 'true') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'edit_one_mode');
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'identification_field_idx');
-            // Força a exibição do review após a correção
             await ctx.stateService.setMetadata(instanceId, userPhone, 'force_review_once', 'true');
             this.logger.log(`[IDENTIFICATION] Edit One mode finished for ${userPhone}. Forcing review next.`);
             return step.nextStepId ?? null;
@@ -67,7 +65,6 @@ export class CustomerIdentificationHandler implements IStepHandler {
             return step.id;
         } else {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'identification_field_idx');
-            // Ativa flag para o Review não pular na primeira vez após a identificação
             await ctx.stateService.setMetadata(instanceId, userPhone, 'force_review_once', 'true');
             this.logger.log(`[IDENTIFICATION] User ${userPhone} finished identification ${step.id}. Forcing review next.`);
             return step.nextStepId ?? null;
@@ -80,7 +77,6 @@ export class CustomerIdentificationHandler implements IStepHandler {
         const userPhone = ctx.userPhone;
 
         const rawIndex = await ctx.stateService.getMetadata(instanceId, userPhone, 'identification_field_idx');
-        // Lógica de Salto Inteligente
         if (step.skipIfAlreadyFilled) {
             const forceReview = await ctx.stateService.getMetadata(instanceId, userPhone, 'force_review_once');
             if (forceReview !== 'true') {
