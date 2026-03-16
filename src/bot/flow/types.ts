@@ -19,6 +19,7 @@ export interface BaseStep {
   type: FlowStepType;
   nextStepId?: string | null;
   allowBack?: boolean;
+  label?: string;
 }
 
 export interface TextStep extends BaseStep {
