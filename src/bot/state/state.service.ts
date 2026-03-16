@@ -115,7 +115,7 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const key = `session:${instanceId}:${userPhone}:journey`;
     await this.redis.rpush(key, JSON.stringify(event));
-    await this.redis.ltrim(key, 0, 49); // Manter as últimas 50 interações para não sobrecarregar
+    await this.redis.ltrim(key, 0, 49);
     await this.redis.expire(key, 86400);
   }
 
@@ -135,7 +135,7 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
   async clearFlowSessions(instanceId: string): Promise<void> {
     const pattern = `session:${instanceId}:*`;
     let cursor = '0';
-    
+
     do {
       const [newCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
       cursor = newCursor;

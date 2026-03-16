@@ -91,7 +91,6 @@ export class WhatsappMetaController {
                             const contacts = change.value.contacts || [];
 
                             for (const msg of messages) {
-                                // Extract the real phone number from Meta contacts array mapping
                                 let senderPhone = msg.from;
                                 const contactData = contacts.find((c: any) => c.wa_id === msg.from);
                                 if (contactData && contactData.wa_id) {

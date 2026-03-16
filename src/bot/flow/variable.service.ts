@@ -28,12 +28,12 @@ export class VariableService {
 
         for (const match of matches) {
             const path = match[1].trim();
-            
+
             if (!cache.has(path)) {
                 const value = await this.getValueByPath(path, context);
                 cache.set(path, value !== undefined && value !== null ? String(value) : match[0]);
             }
-            
+
             resolvedText = resolvedText.replace(match[0], cache.get(path)!);
         }
 
@@ -52,21 +52,18 @@ export class VariableService {
             const scope = parts[0].toLowerCase();
             const field = parts.slice(1).join('.');
 
-            // 1. SYSTEM
             if (scope === 'sys') return await this.resolveSystemVariable(field, context);
 
-            // 2. CONTACT / USER / ALIASES (Unificado)
             if (scope === 'contact' || scope === 'user' || parts.length === 1) {
                 const searchKey = parts.length === 1 ? scope : field.replace('metadata.', '');
                 const result = this.resolveContactVariable(searchKey, context.user);
-                
+
                 if (result !== undefined) {
                     this.logger.debug(`[VARIABLE] Hit: ${path} -> ${result}`);
                     return result;
                 }
             }
 
-            // 3. METADATA (Fallback Direto)
             if (scope === 'metadata' || parts.length === 1) {
                 const metaKey = (scope === 'metadata' ? field : scope).toLowerCase();
                 const metadata = (context.user as any).metadata || {};
@@ -74,7 +71,6 @@ export class VariableService {
                 if (value !== undefined) return value;
             }
 
-            // 4. FLOW
             if (scope === 'flow' && context.flowDef) {
                 return (context.flowDef as any)[field];
             }
@@ -137,7 +133,7 @@ export class VariableService {
         if (key === 'phone' || key === 'wpp_phone' || key === 'whatsapp' || key === 'whatsapp_real') {
             const phone = metadata.whatsapp_real || metadata.phone || metadata.wpp_phone || metadata.whatsapp;
             if (phone) return phone;
-            
+
             // Fallback para telefone real (se não for @lid)
             if (user.phone && !user.phone.includes('@lid')) return user.phone.split('@')[0];
             return undefined;
