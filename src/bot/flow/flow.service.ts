@@ -135,7 +135,9 @@ export class FlowService {
         const currentStep = currentStepId ? flowDef.steps[currentStepId] : null;
 
         if (currentStep?.allowBack) {
-          const previousStepId = await this.stateService.popHistory(msg.instanceId, phone);
+          await this.stateService.popHistory(msg.instanceId, phone); // Remove o passo atual do topo
+          const previousStepId = await this.stateService.popHistory(msg.instanceId, phone); // Busca o passo anterior real
+          
           if (previousStepId) {
             this.logger.log(`[BACK] User ${phone} requested to go back to ${previousStepId}`);
             const ctx: StepHandlerContext = {
@@ -225,7 +227,7 @@ export class FlowService {
 
         ctx.step = step;
 
-        if (['OPTIONS', 'INPUT', 'CUSTOMER_IDENTIFICATION', 'REVIEW'].includes(step.type)) {
+        if (['OPTIONS', 'INPUT', 'CUSTOMER_IDENTIFICATION', 'REVIEW', 'TEXT', 'MEDIA'].includes(step.type)) {
           const lastStep = await ctx.stateService.peekHistory(ctx.msg.instanceId, ctx.user.phone);
           if (lastStep !== currentStepId) {
             await ctx.stateService.pushHistory(

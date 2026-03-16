@@ -99,7 +99,7 @@ export class ReviewHandler implements IStepHandler {
             step.fields.forEach((f, i) => {
                 fieldList += `${i + 1}. ${f.label}\n`;
             });
-            fieldList += `\n0. ↩️ Voltar`;
+            fieldList += `\n9. ↩️ Voltar ao Resumo`;
 
             await ctx.outgoingQueue.add('send', {
                 instanceId,
@@ -117,7 +117,7 @@ export class ReviewHandler implements IStepHandler {
         const instanceId = ctx.msg.instanceId;
         const userPhone = ctx.userPhone;
 
-        if (input === '0') {
+        if (input === '9') {
             await ctx.stateService.deleteMetadata(instanceId, userPhone, 'review_mode');
             await this.executeStep(ctx);
             return null;
@@ -128,7 +128,7 @@ export class ReviewHandler implements IStepHandler {
             await ctx.outgoingQueue.add('send', {
                 instanceId,
                 to: ctx.msg.sender,
-                content: "❌ Opção inválida. Escolha um número da lista ou 0 para voltar.",
+                content: "❌ Opção inválida. Escolha um número da lista ou 9 para voltar.",
                 delayMs: 300,
             });
             return null;
