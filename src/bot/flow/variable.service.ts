@@ -31,7 +31,17 @@ export class VariableService {
 
             if (!cache.has(path)) {
                 const value = await this.getValueByPath(path, context);
-                cache.set(path, value !== undefined && value !== null ? String(value) : match[0]);
+                let resolvedValue: any;
+
+                if (value === undefined || value === null) {
+                    resolvedValue = ''; 
+                } else if (typeof value === 'object') {
+                    resolvedValue = JSON.stringify(value);
+                } else {
+                    resolvedValue = String(value);
+                }
+                
+                cache.set(path, String(resolvedValue));
             }
 
             resolvedText = resolvedText.replace(match[0], cache.get(path)!);
@@ -97,6 +107,7 @@ export class VariableService {
                 const weekday = now.toLocaleDateString('pt-BR', { weekday: 'long' });
                 return weekday.charAt(0).toUpperCase() + weekday.slice(1);
             case 'year': return now.getFullYear().toString();
+            case 'desk_url': return process.env.TRACKDESK_API_URL || 'http://localhost:3001/api/webhook/whatsapp/chamado';
             case 'protocol':
                 const pad = (n: number) => n.toString().padStart(2, '0');
                 const pDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;

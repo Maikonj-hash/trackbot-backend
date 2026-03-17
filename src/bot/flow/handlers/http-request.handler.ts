@@ -7,7 +7,7 @@ export class HttpRequestHandler implements IStepHandler {
   private readonly logger = new Logger(HttpRequestHandler.name);
 
   canHandle(type: string): boolean {
-    return type === 'HTTP_REQUEST';
+    return type === 'HTTP_REQUEST' || type === 'TRACK_DESK';
   }
 
   async processInput(ctx: StepHandlerContext): Promise<string | null> {
@@ -26,6 +26,10 @@ export class HttpRequestHandler implements IStepHandler {
       });
 
       this.logger.log(`[HTTP REQUEST] Disparando ${step.method} para ${resolvedUrl}`);
+
+      if (!resolvedUrl || !resolvedUrl.startsWith('http')) {
+        throw new Error(`URL Inválida ou não resolvida: ${resolvedUrl}`);
+      }
 
       const rawHeaders = step.headers || {};
       const requestHeaders: Record<string, string> = {
@@ -50,19 +54,26 @@ export class HttpRequestHandler implements IStepHandler {
           flowDef: ctx.flowDef,
         });
 
-        // NOTA: Se o bodyContent for uma string JSON (como o sys.payload), 
-        // o variableService.resolve vai retornar o JSON stringificado.
-        // O fetch enviará isso corretamente como o corpo da requisição.
+        // Smart JSON Detection: Se a string resolvida parece um JSON, convertemos para objeto
+        // Isso garante que o body final enviado pelo fetch (via JSON.stringify lá embaixo) seja íntegro.
+        try {
+          if (typeof body === 'string' && (body.trim().startsWith('{') || body.trim().startsWith('['))) {
+            const parsed = JSON.parse(body);
+            body = parsed;
+          }
+        } catch (e) {
+          // Mantém como string se não for um JSON válido
+        }
       }
 
-      const timeout = step.timeout || 10000;
+      const timeout = step.timeout || 15000; // Aumentado para 15s para garantir
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
       const response = await fetch(resolvedUrl, {
         method: step.method,
         headers: requestHeaders,
-        body,
+        body: typeof body === 'object' ? JSON.stringify(body) : body,
         signal: controller.signal,
       });
 
@@ -76,50 +87,72 @@ export class HttpRequestHandler implements IStepHandler {
       }
 
       this.logger.log(`[HTTP RESPONSE] Status: ${responseStatus}`);
-      let metadataUpdates: any = {};
 
-      if (step.saveStatusToVariable) {
-        metadataUpdates[step.saveStatusToVariable.toLowerCase()] = responseStatus;
-      }
+      // Processamento de Metadados Centralizado
+      await this.persistMetadata(ctx, step, responseStatus, responseData);
 
-      if (step.saveResponseToVariable) {
-        metadataUpdates[step.saveResponseToVariable.toLowerCase()] = responseData;
-      }
-
-      if (step.responseMapping && Array.isArray(step.responseMapping)) {
-        for (const mapping of step.responseMapping) {
-          const value = ctx.variableService.getDeepValue(responseData, mapping.jsonPath);
-          if (value !== undefined) {
-            metadataUpdates[mapping.variableName.toLowerCase()] = value;
-          }
-        }
-      }
-
-      if (Object.keys(metadataUpdates).length > 0) {
-        const currentMetadata = (ctx.user as any).metadata || {};
-        await ctx.prisma.user.update({
-          where: { id: ctx.user.id },
-          data: { metadata: { ...currentMetadata, ...metadataUpdates } },
-        });
-      }
-
+      // Definição de Próximo Passo com Proteção contra Limbo
       if (responseStatus >= 200 && responseStatus < 300) {
-        return step.successStepId || step.nextStepId || null;
+        return await this.getNextStep(ctx, step.successStepId || step.nextStepId);
       } else {
-        return step.failureStepId || step.nextStepId || null;
+        return await this.getNextStep(ctx, step.failureStepId || step.nextStepId);
       }
     } catch (error) {
       this.logger.error(`[HTTP REQUEST FAILED] ${step.url}`, error);
 
-      if (step.saveStatusToVariable) {
-        const currentMetadata = (ctx.user as any).metadata || {};
-        await ctx.prisma.user.update({
-          where: { id: ctx.user.id },
-          data: { metadata: { ...currentMetadata, [step.saveStatusToVariable.toLowerCase()]: 500 } },
-        });
-      }
+      // Em erro, tenta salvar status 500 se configurado
+      await this.persistMetadata(ctx, step, 500, { error: error.message });
 
-      return step.failureStepId || step.nextStepId || null;
+      return await this.getNextStep(ctx, step.failureStepId || step.nextStepId);
+    }
+  }
+
+  /**
+   * Resolve o próximo passo e limpa o estado caso seja um nó terminal (Fim do fluxo).
+   */
+  private async getNextStep(ctx: StepHandlerContext, targetId: string | null | undefined): Promise<string | null> {
+    const nextId = targetId || null;
+    if (!nextId) {
+      this.logger.log(`[HTTP HANDLER] Nó terminal atingido (${ctx.step.type}). Finalizando atendimento para ${ctx.userPhone}.`);
+      await ctx.stateService.clearStep(ctx.msg.instanceId, ctx.userPhone);
+    }
+    return nextId;
+  }
+
+  /**
+   * Centraliza a persistência de status, resposta e mapeamento de campos no banco.
+   */
+  private async persistMetadata(ctx: StepHandlerContext, step: HttpRequestStep, status: number, data: any) {
+    const metadataUpdates: any = {};
+
+    // 1. Status da Resposta
+    if (step.saveStatusToVariable?.trim()) {
+      metadataUpdates[step.saveStatusToVariable.trim().toLowerCase()] = status;
+    }
+
+    // 2. Resposta Completa
+    if (step.saveResponseToVariable?.trim()) {
+      metadataUpdates[step.saveResponseToVariable.trim().toLowerCase()] = data;
+    }
+
+    // 3. Mapeamento de Campos Específicos (JSON Path)
+    if (step.responseMapping && Array.isArray(step.responseMapping)) {
+      for (const mapping of step.responseMapping) {
+        if (mapping.jsonPath && mapping.variableName?.trim()) {
+          const value = ctx.variableService.getDeepValue(data, mapping.jsonPath);
+          if (value !== undefined) {
+            metadataUpdates[mapping.variableName.trim().toLowerCase()] = value;
+          }
+        }
+      }
+    }
+
+    if (Object.keys(metadataUpdates).length > 0) {
+      const currentMetadata = (ctx.user as any).metadata || {};
+      await ctx.prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { metadata: { ...currentMetadata, ...metadataUpdates } },
+      });
     }
   }
 }

@@ -12,6 +12,7 @@ export type FlowStepType =
   | 'SWITCH'
   | 'REVIEW'
   | 'JUMP'
+  | 'TRACK_DESK'
   | 'END';
 
 export interface BaseStep {
@@ -60,7 +61,7 @@ export interface ConditionStep extends BaseStep {
 }
 
 export interface HttpRequestStep extends BaseStep {
-  type: 'HTTP_REQUEST';
+  type: 'HTTP_REQUEST' | 'TRACK_DESK';
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   url: string;
   headers?: Record<string, string>;
@@ -76,6 +77,10 @@ export interface HttpRequestStep extends BaseStep {
   }>;
 
   timeout?: number;
+}
+
+export interface TrackDeskStep extends HttpRequestStep {
+  type: 'TRACK_DESK';
 }
 
 export interface DelayStep extends BaseStep {
