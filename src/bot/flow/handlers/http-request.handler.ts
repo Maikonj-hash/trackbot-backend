@@ -149,10 +149,18 @@ export class HttpRequestHandler implements IStepHandler {
 
     if (Object.keys(metadataUpdates).length > 0) {
       const currentMetadata = (ctx.user as any).metadata || {};
-      await ctx.prisma.user.update({
-        where: { id: ctx.user.id },
-        data: { metadata: { ...currentMetadata, ...metadataUpdates } },
+      
+      // Otimização: Só atualiza se houver mudança real nos valores
+      const hasChanges = Object.entries(metadataUpdates).some(([key, value]) => {
+        return JSON.stringify(currentMetadata[key]) !== JSON.stringify(value);
       });
+
+      if (hasChanges) {
+        await ctx.prisma.user.update({
+          where: { id: ctx.user.id },
+          data: { metadata: { ...currentMetadata, ...metadataUpdates } },
+        });
+      }
     }
   }
 }
