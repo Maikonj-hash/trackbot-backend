@@ -53,4 +53,14 @@ export class FlowController {
   publish(@Param('id') id: string) {
     return this.flowService.publish(id);
   }
+
+  @Post(':id/duplicate')
+  duplicate(@Param('id') id: string) {
+    return this.flowService.duplicate(id);
+  }
+
+  @Patch(':id/toggle')
+  toggle(@Param('id') id: string) {
+    return this.flowService.toggleActive(id);
+  }
 }

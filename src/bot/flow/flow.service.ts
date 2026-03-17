@@ -109,10 +109,11 @@ export class FlowService {
 
       const instance = await this.prisma.whatsappInstance.findUnique({
         where: { id: msg.instanceId },
+        include: { flow: true }
       });
 
-      if (!instance?.flowId) {
-        this.logger.log(`[PASSIVE MODE] Instance ${instance?.name || msg.instanceId} has no flow associated. Ignoring message from ${phone}.`);
+      if (!instance?.flowId || (instance.flow && !instance.flow.isActive)) {
+        this.logger.log(`[PASSIVE MODE] Instance ${instance?.name || msg.instanceId} has no flow associated or its INACTIVE. Ignoring message from ${phone}.`);
         return;
       }
 

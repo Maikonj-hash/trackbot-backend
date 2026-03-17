@@ -98,4 +98,24 @@ export class FlowService {
 
     return updated;
   }
+
+  async duplicate(id: string) {
+    const original = await this.findOne(id);
+    return this.prisma.flow.create({
+      data: {
+        name: `${original.name} (Cópia)`,
+        description: original.description,
+        jsonContent: original.jsonContent || { nodes: [], edges: [] },
+        isActive: false, // Começa inativo por segurança
+      },
+    });
+  }
+
+  async toggleActive(id: string) {
+    const flow = await this.findOne(id);
+    return this.prisma.flow.update({
+      where: { id },
+      data: { isActive: !flow.isActive },
+    });
+  }
 }
