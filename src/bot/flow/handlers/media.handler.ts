@@ -22,6 +22,11 @@ export class MediaHandler implements IStepHandler {
       flowDef: ctx.flowDef,
     });
 
+    if (!resolvedUrl || !resolvedUrl.startsWith('http')) {
+      this.logger.error(`[MEDIA HANDLER] URL de mídia inválida ou vazia: ${resolvedUrl}`);
+      return step.nextStepId ?? null;
+    }
+
     const resolvedCaption = await ctx.variableService.resolve(step.caption || '', {
       user: ctx.user,
       flowDef: ctx.flowDef,

@@ -61,14 +61,30 @@ export class FlowService {
 
   async processMessage(msg: IncomingMessage) {
     if (!msg.content) return;
-    
-    // Se for LID, precisamos preservar o domínio inteiro no "phone" para saber como responder
-    // Caso contrário, tiramos o domínio e gravamos só os números (Padrão s.whatsapp.net).
+
     let phone: string;
     if (msg.sender.includes('@lid')) {
-        phone = msg.sender;
+      phone = msg.sender;
     } else {
-        phone = msg.sender.split('@')[0];
+      phone = msg.sender.split('@')[0];
+    }
+
+    let lockAcquired = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!lockAcquired && attempts < maxAttempts) {
+      lockAcquired = await this.stateService.acquireLock(msg.instanceId, phone);
+      if (!lockAcquired) {
+        attempts++;
+        this.logger.debug(`[FLOW LOCK] Aguardando processamento anterior para ${phone} (Tentativa ${attempts})...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    if (!lockAcquired) {
+      this.logger.warn(`[FLOW LOCK] Não foi possível adquirir trava para ${phone} após 5s. Ignorando mensagem para evitar inconsistência.`);
+      return;
     }
 
     try {
@@ -125,7 +141,7 @@ export class FlowService {
           }
 
           await this.stateService.clearStep(msg.instanceId, phone);
-          await this.stateService.clearJourney(msg.instanceId, phone); // Limpa jornada ao sair do END
+          await this.stateService.clearJourney(msg.instanceId, phone);
           currentStepId = null;
         }
       }
@@ -135,9 +151,9 @@ export class FlowService {
         const currentStep = currentStepId ? flowDef.steps[currentStepId] : null;
 
         if (currentStep?.allowBack) {
-          await this.stateService.popHistory(msg.instanceId, phone); // Remove o passo atual do topo
-          const previousStepId = await this.stateService.popHistory(msg.instanceId, phone); // Busca o passo anterior real
-          
+          await this.stateService.popHistory(msg.instanceId, phone);
+          const previousStepId = await this.stateService.popHistory(msg.instanceId, phone);
+
           if (previousStepId) {
             this.logger.log(`[BACK] User ${phone} requested to go back to ${previousStepId}`);
             const ctx: StepHandlerContext = {
@@ -170,7 +186,7 @@ export class FlowService {
       };
 
       if (!currentStepId) {
-        await this.stateService.clearJourney(msg.instanceId, phone); // Começo de um novo atendimento
+        await this.stateService.clearJourney(msg.instanceId, phone);
         const startStepId = flowDef.firstStepId || (user.name ? 'MENU_PRINCIPAL' : 'INITIAL');
         await this.executeStepChain(startStepId, ctx);
         return;
@@ -205,6 +221,8 @@ export class FlowService {
         `Critical Error during processMessage for ${phone}:`,
         error,
       );
+    } finally {
+      await this.stateService.releaseLock(msg.instanceId, phone);
     }
   }
   private async executeStepChain(startStepId: string, ctx: StepHandlerContext) {
@@ -214,7 +232,17 @@ export class FlowService {
     try {
       while (currentStepId) {
         if (stepsCount >= MAX_STEPS_PER_MESSAGE) {
-          this.logger.warn(`Max steps (${MAX_STEPS_PER_MESSAGE}) reached for ${ctx.user.phone}. Potential loop?`);
+          this.logger.error(`[FLOW LOOP DETECTED] Max steps (${MAX_STEPS_PER_MESSAGE}) reached for ${ctx.userPhone}. Clearing state.`);
+
+          await ctx.outgoingQueue.add('send', {
+            instanceId: ctx.msg.instanceId,
+            to: ctx.msg.sender,
+            content: "⚠️ _Desculpe, detectamos uma instabilidade no processamento deste fluxo. Por segurança, sua sessão foi reiniciada._",
+            delayMs: 500,
+          });
+
+          await ctx.stateService.clearStep(ctx.msg.instanceId, ctx.userPhone);
+          await ctx.stateService.clearJourney(ctx.msg.instanceId, ctx.userPhone);
           break;
         }
         stepsCount++;
@@ -244,12 +272,11 @@ export class FlowService {
           currentStepId,
         );
 
-        // Registro de Jornada (Entrada no Nó)
         await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.user.phone, {
           type: 'ENTRY',
           nodeId: currentStepId,
           nodeType: step.type,
-          label: (step as any).label || step.type, // Tenta pegar label ou usa o tipo
+          label: (step as any).label || step.type,
           timestamp: new Date().toISOString(),
         });
 

@@ -30,7 +30,7 @@ export class InputHandler implements IStepHandler {
         await ctx.outgoingQueue.add('send', {
           instanceId: ctx.msg.instanceId,
           to: ctx.msg.sender,
-          content: '⚠️ _Número máximo de tentativas excedido. Pulando etapa..._',
+          content: '_Número máximo de tentativas excedido. Pulando etapa..._',
           delayMs: 500,
         });
         return step.nextStepId ?? null;
@@ -43,7 +43,7 @@ export class InputHandler implements IStepHandler {
       await ctx.outgoingQueue.add('send', {
         instanceId: ctx.msg.instanceId,
         to: ctx.msg.sender,
-        content: `❌ ${errorMessage}`,
+        content: ` ${errorMessage}`,
         delayMs: 500,
       });
 
@@ -69,6 +69,7 @@ export class InputHandler implements IStepHandler {
         where: { id: ctx.user.id },
         data: { name: valueToSave },
       });
+      ctx.user.name = valueToSave;
     } else if (step.saveToVariable && step.saveToVariable !== 'phone') {
       const varName = step.saveToVariable.toLowerCase();
       const currentMetadata = (ctx.user as any).metadata || {};
@@ -78,6 +79,7 @@ export class InputHandler implements IStepHandler {
         where: { id: ctx.user.id },
         data: { metadata: newMetadata },
       });
+      (ctx.user as any).metadata = newMetadata;
     }
 
     return step.nextStepId ?? null;

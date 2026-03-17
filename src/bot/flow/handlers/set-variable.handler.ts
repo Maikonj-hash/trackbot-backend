@@ -38,6 +38,8 @@ export class SetVariableHandler implements IStepHandler {
       data: { metadata: newMetadata },
     });
 
+    (ctx.user as any).metadata = newMetadata;
+
     await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
       type: 'INTERACTION',
       nodeId: step.id,

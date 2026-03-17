@@ -28,7 +28,9 @@ export class SwitchHandler implements IStepHandler {
 
         const rawValue = await this.variableService.get(ctx.user, evalVar, ctx.flowDef);
         const isUnresolved = rawValue === undefined || rawValue === null;
-        const stringValue = isUnresolved ? "" : String(rawValue).trim().toLowerCase();
+        const stringValue = isUnresolved ? "" : (typeof rawValue === 'object' ? JSON.stringify(rawValue) : String(rawValue)).trim().toLowerCase();
+        const numValue = Number(stringValue);
+        const isNumeric = !isNaN(numValue) && stringValue !== "";
 
         await ctx.stateService.pushJourney(ctx.msg.instanceId, ctx.userPhone, {
             type: 'INTERACTION',
@@ -41,7 +43,12 @@ export class SwitchHandler implements IStepHandler {
 
         for (const branch of switchStep.branches || []) {
             const branchVal = branch.value ? branch.value.trim().toLowerCase() : "";
-            if (branchVal === stringValue) {
+            const branchNum = Number(branchVal);
+            const isBranchNumeric = !isNaN(branchNum) && branchVal !== "";
+
+            if (isNumeric && isBranchNumeric) {
+                if (numValue === branchNum) return branch.targetStepId;
+            } else if (branchVal === stringValue) {
                 return branch.targetStepId;
             }
         }

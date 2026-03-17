@@ -76,7 +76,7 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const key = `session:${instanceId}:${userPhone}:history`;
     await this.redis.lpush(key, stepId);
-    await this.redis.ltrim(key, 0, 9); // Manter apenas as últimas 10 interações
+    await this.redis.ltrim(key, 0, 9);
     await this.redis.expire(key, 86400);
   }
 
@@ -143,5 +143,16 @@ export class StateService implements OnModuleInit, OnModuleDestroy {
         await this.redis.del(...keys);
       }
     } while (cursor !== '0');
+  }
+
+  async acquireLock(instanceId: string, userPhone: string, timeoutMs: number = 30000): Promise<boolean> {
+    const lockKey = `lock:process:${instanceId}:${userPhone}`;
+    const result = await (this.redis as any).set(lockKey, 'locked', 'NX', 'PX', timeoutMs);
+    return result === 'OK';
+  }
+
+  async releaseLock(instanceId: string, userPhone: string): Promise<void> {
+    const lockKey = `lock:process:${instanceId}:${userPhone}`;
+    await this.redis.del(lockKey);
   }
 }

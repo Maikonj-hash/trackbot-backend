@@ -34,13 +34,13 @@ export class VariableService {
                 let resolvedValue: any;
 
                 if (value === undefined || value === null) {
-                    resolvedValue = ''; 
+                    resolvedValue = '';
                 } else if (typeof value === 'object') {
                     resolvedValue = JSON.stringify(value);
                 } else {
                     resolvedValue = String(value);
                 }
-                
+
                 cache.set(path, String(resolvedValue));
             }
 
@@ -107,13 +107,24 @@ export class VariableService {
                 const weekday = now.toLocaleDateString('pt-BR', { weekday: 'long' });
                 return weekday.charAt(0).toUpperCase() + weekday.slice(1);
             case 'year': return now.getFullYear().toString();
-            case 'desk_url': return process.env.TRACKDESK_API_URL || 'http://localhost:3001/api/webhook/whatsapp/chamado';
+            case 'desk_url':
+                const envUrl = process.env.TRACKDESK_API_URL;
+                if (!envUrl) {
+                    this.logger.error("[VARIABLE] TRACKDESK_API_URL não configurada no .env!");
+                    return "";
+                }
+                return envUrl;
             case 'protocol':
+                const metadata = (context.user as any).metadata || {};
+                if (metadata['sys.protocol']) return metadata['sys.protocol'];
+
                 const pad = (n: number) => n.toString().padStart(2, '0');
                 const pDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
                 const pTime = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
                 const random = Math.floor(1000 + Math.random() * 9000);
-                return `${pDate}-${pTime}-${random}`;
+                const newProtocol = `${pDate}-${pTime}-${random}`;
+
+                return newProtocol;
             case 'payload':
                 const journey = await this.stateService.getJourney(context.user.instanceId || 'unknown', context.user.phone);
                 return JSON.stringify({
@@ -125,32 +136,23 @@ export class VariableService {
         }
     }
 
-    /**
-     * Resolve dados de contato com aliases e fallbacks inteligentes.
-     * Retorna undefined para valores de "sistema" ou vazios para não poluir o Review/Skip.
-     */
     private resolveContactVariable(field: string, user: User): any {
         const metadata = (user as any).metadata || {};
         const key = field.toLowerCase();
 
-        // Lógica de Nome
         if (key === 'name' || key === 'wpp_name' || key === 'nome') {
             const name = user.name || metadata.name || metadata.wpp_name || metadata.nome;
             if (name && !['UNIDENTIFIED_USER', 'User', 'Cliente'].includes(name)) return name;
             return undefined;
         }
 
-        // Lógica de Telefone
         if (key === 'phone' || key === 'wpp_phone' || key === 'whatsapp' || key === 'whatsapp_real') {
             const phone = metadata.whatsapp_real || metadata.phone || metadata.wpp_phone || metadata.whatsapp;
             if (phone) return phone;
 
-            // Fallback para telefone real (se não for @lid)
             if (user.phone && !user.phone.includes('@lid')) return user.phone.split('@')[0];
             return undefined;
         }
-
-        // E-mail
         if (key === 'email' || key === 'e-mail') {
             return metadata.email || metadata['e-mail'];
         }

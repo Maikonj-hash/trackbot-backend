@@ -54,19 +54,23 @@ export class HttpRequestHandler implements IStepHandler {
           flowDef: ctx.flowDef,
         });
 
-        // Smart JSON Detection: Se a string resolvida parece um JSON, convertemos para objeto
-        // Isso garante que o body final enviado pelo fetch (via JSON.stringify lá embaixo) seja íntegro.
         try {
           if (typeof body === 'string' && (body.trim().startsWith('{') || body.trim().startsWith('['))) {
             const parsed = JSON.parse(body);
             body = parsed;
           }
+
+          if (typeof body === 'object' && step.type === 'TRACK_DESK') {
+            Object.keys(body).forEach(key => {
+              if (body[key] === "") delete body[key];
+            });
+            this.logger.log(`[TRACK-DESK] Payload Sanitizado: ${JSON.stringify(body)}`);
+          }
         } catch (e) {
-          // Mantém como string se não for um JSON válido
         }
       }
 
-      const timeout = step.timeout || 15000; // Aumentado para 15s para garantir
+      const timeout = step.timeout || 15000;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -88,10 +92,8 @@ export class HttpRequestHandler implements IStepHandler {
 
       this.logger.log(`[HTTP RESPONSE] Status: ${responseStatus}`);
 
-      // Processamento de Metadados Centralizado
       await this.persistMetadata(ctx, step, responseStatus, responseData);
 
-      // Definição de Próximo Passo com Proteção contra Limbo
       if (responseStatus >= 200 && responseStatus < 300) {
         return await this.getNextStep(ctx, step.successStepId || step.nextStepId);
       } else {
@@ -100,16 +102,21 @@ export class HttpRequestHandler implements IStepHandler {
     } catch (error) {
       this.logger.error(`[HTTP REQUEST FAILED] ${step.url}`, error);
 
-      // Em erro, tenta salvar status 500 se configurado
       await this.persistMetadata(ctx, step, 500, { error: error.message });
+
+      if ((step as any).errorFallbackMessage) {
+        await ctx.outgoingQueue.add('send', {
+          instanceId: ctx.msg.instanceId,
+          to: ctx.userPhone,
+          content: (step as any).errorFallbackMessage,
+          delayMs: 500,
+        });
+      }
 
       return await this.getNextStep(ctx, step.failureStepId || step.nextStepId);
     }
   }
 
-  /**
-   * Resolve o próximo passo e limpa o estado caso seja um nó terminal (Fim do fluxo).
-   */
   private async getNextStep(ctx: StepHandlerContext, targetId: string | null | undefined): Promise<string | null> {
     const nextId = targetId || null;
     if (!nextId) {
@@ -119,23 +126,16 @@ export class HttpRequestHandler implements IStepHandler {
     return nextId;
   }
 
-  /**
-   * Centraliza a persistência de status, resposta e mapeamento de campos no banco.
-   */
   private async persistMetadata(ctx: StepHandlerContext, step: HttpRequestStep, status: number, data: any) {
     const metadataUpdates: any = {};
-
-    // 1. Status da Resposta
     if (step.saveStatusToVariable?.trim()) {
       metadataUpdates[step.saveStatusToVariable.trim().toLowerCase()] = status;
     }
 
-    // 2. Resposta Completa
     if (step.saveResponseToVariable?.trim()) {
       metadataUpdates[step.saveResponseToVariable.trim().toLowerCase()] = data;
     }
 
-    // 3. Mapeamento de Campos Específicos (JSON Path)
     if (step.responseMapping && Array.isArray(step.responseMapping)) {
       for (const mapping of step.responseMapping) {
         if (mapping.jsonPath && mapping.variableName?.trim()) {
@@ -147,19 +147,34 @@ export class HttpRequestHandler implements IStepHandler {
       }
     }
 
-    if (Object.keys(metadataUpdates).length > 0) {
+    if (Object.keys(metadataUpdates).length > 0 || status !== undefined) {
       const currentMetadata = (ctx.user as any).metadata || {};
-      
-      // Otimização: Só atualiza se houver mudança real nos valores
+
+      if (status !== undefined) {
+        metadataUpdates['sys.last_http_status'] = status;
+        if (status >= 400) {
+          metadataUpdates['sys.last_http_error'] = data?.error || data?.message || "Erro desconhecido";
+        } else {
+          metadataUpdates['sys.last_http_error'] = null;
+        }
+
+        const currentProtocol = await ctx.variableService.get(ctx.user, 'sys.protocol', ctx.flowDef);
+        if (currentProtocol && !currentMetadata['sys.protocol']) {
+          metadataUpdates['sys.protocol'] = currentProtocol;
+        }
+      }
+
       const hasChanges = Object.entries(metadataUpdates).some(([key, value]) => {
         return JSON.stringify(currentMetadata[key]) !== JSON.stringify(value);
       });
 
       if (hasChanges) {
+        const finalMetadata = { ...currentMetadata, ...metadataUpdates };
         await ctx.prisma.user.update({
           where: { id: ctx.user.id },
-          data: { metadata: { ...currentMetadata, ...metadataUpdates } },
+          data: { metadata: finalMetadata },
         });
+        (ctx.user as any).metadata = finalMetadata;
       }
     }
   }
