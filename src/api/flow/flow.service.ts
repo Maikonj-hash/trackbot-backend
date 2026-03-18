@@ -106,7 +106,7 @@ export class FlowService {
         name: `${original.name} (Cópia)`,
         description: original.description,
         jsonContent: original.jsonContent || { nodes: [], edges: [] },
-        isActive: false, // Começa inativo por segurança
+        isActive: false,
       },
     });
   }
