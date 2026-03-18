@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ProviderFactory } from '../providers/provider.factory';
 import { MetaOfficialProvider } from '../providers/meta-official.provider';
 import { IncomingMessage } from '../interfaces/message-provider.interface';
+import { Public } from '../../auth/decorators/public.decorator';
 import * as crypto from 'crypto';
 
 @Controller('webhook/meta')
@@ -35,6 +36,8 @@ export class WhatsappMetaController {
 
         return hash === expectedHash;
     }
+
+    @Public()
     @Get()
     async verifyWebhook(
         @Query('hub.mode') mode: string,
@@ -60,6 +63,7 @@ export class WhatsappMetaController {
         return res.sendStatus(HttpStatus.BAD_REQUEST);
     }
 
+    @Public()
     @Post()
     async receiveWebhook(@Body() body: any, @Req() req: Request, @Res() res: Response) {
         if (!this.validateSignature(req, body)) {

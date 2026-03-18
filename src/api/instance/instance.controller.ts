@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Delete, Param, NotFoundException, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete, Param, NotFoundException, Logger, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionManagerService } from '../../whatsapp/session-manager/session-manager.service';
 
 @Controller('instances')
+@UseGuards(JwtAuthGuard)
 export class InstanceController {
   private readonly logger = new Logger(InstanceController.name);
 

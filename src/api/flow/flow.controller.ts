@@ -7,10 +7,13 @@ import {
   Put,
   Delete,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { FlowService } from './flow.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @Controller('flows')
+@UseGuards(JwtAuthGuard)
 export class FlowController {
   constructor(private readonly flowService: FlowService) { }
 
